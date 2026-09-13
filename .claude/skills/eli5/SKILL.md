@@ -20,7 +20,7 @@ A single, self-contained HTML file (no external dependencies — inline CSS/JS, 
 2. Build from "why does this exist" → concrete analogy → side-by-side comparison
 3. Include a comparison table if the topic compares things, and a "gotchas / fine print" section
 4. End with a short TL;DR list
-5. Accurate and current: verify facts against official docs if unsure
+5. Facts get verified online in step 2 of the `all-in-one` pipeline — write confidently about stable concepts, and keep time-sensitive claims (defaults, limits, pricing) hedged unless verified
 
 **Style requirements (match the existing pages):**
 - Dark theme with the palette defined in `index.html` (`--bg #0b0f14`, `--panel #131b26`, `--border #223040`, orange `#ff9900` accents, cyan `#37c8e8` secondary, 16px radius cards)

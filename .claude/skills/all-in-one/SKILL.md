@@ -16,25 +16,31 @@ Follow `.claude/skills/eli5/SKILL.md` for the full content contract. In short:
 - Produce a single self-contained HTML file (inline CSS/JS, zero external requests)
 - Place it in a topic folder matching the subject, e.g. `AWS/Gen AI/opensearch-vs-serverless.html`
 - Structure: ELI5 one-liner → why it exists → concrete analogy → side-by-side table → gotchas → TL;DR
-- Verify facts against official docs when unsure
 
-### Step 2 — Apply the design system (call the `frontend-design` skill)
+### Step 2 — Verify facts online (required — never skip)
+Built-in knowledge can be stale; service names, defaults, limits, and pricing drift. Before finalizing the draft:
+- Use web search against **official sources first** (e.g. `docs.aws.amazon.com`, AWS News Blog, service FAQs/what's-new posts), then reputable secondary sources
+- Verify anything time-sensitive: product names & tiers, default values (chunk sizes, timeouts, token limits), pricing shape (per-what billing, minimums), GA vs preview status, and any "newer option" claims
+- If a fact can't be verified, soften it ("historically…", "check current docs") rather than stating it as fixed — every page already carries a verify-against-docs footer
+- Never cite unverified numbers with false precision
+
+### Step 3 — Apply the design system (call the `frontend-design` skill)
 Follow `.claude/skills/frontend-design/SKILL.md` so the new page matches the site:
 - Dark palette (`#0b0f14` / `#131b26` panels, orange `#ff9900` + cyan `#37c8e8` accents, 16px radius)
 - Sticky anchor nav, scroll-reveal with `prefers-reduced-motion` support, hover-lift cards
 - Responsive to ~360px, visible focus states, semantic landmarks
 
-### Step 3 — Update `index.html` (required — never skip)
+### Step 4 — Update `index.html` (required — never skip)
 A page that isn't linked never appears on GitHub Pages:
 - Add `<a class="card" href="<URL-encoded-relative-path>">…</a>` inside the matching `.group` section
 - Card contents: emoji icon tile, `<h2>` title with a topic `<span class="tag">`, `<span class="card-path">` with the repo path
 - New top-level category? Add a new `.group` with a `.group-title.toggle` collapsible header — the script wires collapse, counts, and search automatically (no JS edits needed)
 - URL-encode spaces in `href` (e.g. `AWS/Gen%20AI/…`)
 
-### Step 4 — Verify
+### Step 5 — Verify
 - Confirm markup balance (matching div/span tags), links resolve to real files, and the page renders correctly in the preview
 
-### Step 5 — Merge to the GitHub repo (required — never skip)
+### Step 6 — Merge to the GitHub repo (required — never skip)
 ```bash
 git add <new-explainer-file> index.html
 git commit -m "Add ELI5 explainer: <topic>"
