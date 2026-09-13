@@ -1,0 +1,657 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AWS Gen AI, ELI5: Chunking Strategies</title>
+<meta name="description" content="A five-year-old-could-get-it explainer of chunking strategies for RAG on AWS — fixed-size, recursive, semantic, parent-child, layout-aware — and how Amazon Bedrock Knowledge Bases does it.">
+<style>
+  :root {
+    --bg: #0b0f14;
+    --bg-soft: #10161f;
+    --panel: #131b26;
+    --panel-2: #18212e;
+    --border: #223040;
+    --text: #e8eef4;
+    --muted: #98a6b5;
+    --faint: #6b7a89;
+    --orange: #ff9900;
+    --orange-soft: rgba(255, 153, 0, 0.12);
+    --cyan: #37c8e8;
+    --cyan-soft: rgba(55, 200, 232, 0.12);
+    --green: #4ade80;
+    --green-soft: rgba(74, 222, 128, 0.1);
+    --red: #f87171;
+    --radius: 16px;
+    --maxw: 1080px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    background:
+      radial-gradient(1200px 500px at 80% -10%, rgba(255, 153, 0, 0.07), transparent 60%),
+      radial-gradient(900px 500px at 10% 0%, rgba(55, 200, 232, 0.06), transparent 55%),
+      var(--bg);
+    color: var(--text);
+    font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    line-height: 1.65;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .container { max-width: var(--maxw); margin: 0 auto; padding: 0 24px; }
+
+  a { color: var(--cyan); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+
+  /* ---------- Nav ---------- */
+  .nav {
+    position: sticky; top: 0; z-index: 50;
+    backdrop-filter: blur(10px);
+    background: rgba(11, 15, 20, 0.8);
+    border-bottom: 1px solid var(--border);
+  }
+  .nav-inner {
+    display: flex; align-items: center; gap: 20px;
+    padding: 14px 24px; max-width: var(--maxw); margin: 0 auto;
+    font-size: 14px; color: var(--muted);
+    overflow-x: auto; white-space: nowrap;
+  }
+  .nav-brand { font-weight: 700; color: var(--text); display: flex; align-items: center; gap: 8px; }
+  .nav-brand .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--orange); box-shadow: 0 0 12px var(--orange); }
+  .nav a { color: var(--muted); }
+  .nav a:hover { color: var(--text); text-decoration: none; }
+  .nav a.back { color: var(--orange); font-weight: 600; }
+
+  /* ---------- Hero ---------- */
+  .hero { padding: 88px 0 64px; }
+  .kicker {
+    display: inline-flex; align-items: center; gap: 8px;
+    font-size: 12px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase;
+    color: var(--orange);
+    background: var(--orange-soft);
+    border: 1px solid rgba(255, 153, 0, 0.3);
+    padding: 6px 12px; border-radius: 999px;
+  }
+  h1 {
+    margin: 22px 0 16px;
+    font-size: clamp(2rem, 5.2vw, 3.4rem);
+    line-height: 1.12;
+    letter-spacing: -0.02em;
+    font-weight: 800;
+  }
+  h1 .grad {
+    background: linear-gradient(90deg, var(--orange) 0%, #ffb84d 45%, var(--cyan) 100%);
+    -webkit-background-clip: text; background-clip: text;
+    -webkit-text-fill-color: transparent; color: transparent;
+  }
+  .hero p.lede {
+    max-width: 660px;
+    color: var(--muted);
+    font-size: clamp(1rem, 1.6vw, 1.15rem);
+  }
+  .badges { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 26px; }
+  .badge {
+    font-size: 12.5px; color: var(--muted);
+    border: 1px solid var(--border); background: var(--bg-soft);
+    padding: 6px 12px; border-radius: 999px;
+  }
+  .badge b { color: var(--text); font-weight: 600; }
+
+  /* ---------- Sections ---------- */
+  section { padding: 56px 0; scroll-margin-top: 80px; }
+  .sec-kicker {
+    font-size: 12px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase;
+    color: var(--cyan); margin-bottom: 10px;
+  }
+  h2 { font-size: clamp(1.5rem, 3vw, 2rem); letter-spacing: -0.01em; line-height: 1.25; margin-bottom: 14px; }
+  .sub { color: var(--muted); max-width: 760px; margin-bottom: 30px; }
+  .sub code, .card code, td code, .rag-step p code {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 0.85em; color: var(--cyan);
+    background: var(--cyan-soft); border-radius: 6px; padding: 1px 6px;
+  }
+
+  .card {
+    background: linear-gradient(180deg, var(--panel) 0%, var(--bg-soft) 100%);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 28px;
+  }
+
+  /* ---------- Steps ---------- */
+  .rag { display: grid; gap: 14px; }
+  .rag-step {
+    display: flex; gap: 16px; align-items: flex-start;
+    background: var(--panel); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 20px 22px;
+  }
+  .rag-num {
+    flex: 0 0 auto; width: 34px; height: 34px; border-radius: 10px;
+    display: grid; place-items: center;
+    font-weight: 800; font-size: 14px; color: var(--orange);
+    background: var(--orange-soft); border: 1px solid rgba(255,153,0,.3);
+  }
+  .rag-step h3 { font-size: 1.02rem; margin-bottom: 4px; }
+  .rag-step p { color: var(--muted); font-size: 0.95rem; }
+
+  /* ---------- Cut demo ---------- */
+  .demo-btns { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 18px; }
+  .demo-btn {
+    cursor: pointer; font: inherit; font-size: 0.9rem;
+    color: var(--muted); background: var(--bg-soft);
+    border: 1px solid var(--border); border-radius: 999px;
+    padding: 8px 16px; transition: all .15s ease;
+  }
+  .demo-btn.active {
+    color: var(--orange); border-color: rgba(255,153,0,.5); background: var(--orange-soft);
+  }
+  .demo-btn:focus-visible { outline: 2px solid var(--cyan); outline-offset: 2px; }
+  .demo-view { display: none; }
+  .demo-view.show { display: block; }
+  .chunks { display: flex; flex-wrap: wrap; gap: 8px; }
+  .chunk {
+    display: inline-block;
+    border-radius: 10px; padding: 8px 12px;
+    font-size: 0.92rem; color: var(--text);
+    border: 1px solid transparent;
+  }
+  .chunk.t1 { background: var(--orange-soft); border-color: rgba(255,153,0,.3); }
+  .chunk.t2 { background: var(--cyan-soft); border-color: rgba(55,200,232,.3); }
+  .chunk.t3 { background: var(--green-soft); border-color: rgba(74,222,128,.3); }
+  .demo-meta { margin-top: 16px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+  .demo-count {
+    font-size: 0.8rem; font-weight: 700; color: var(--faint);
+    border: 1px solid var(--border); border-radius: 999px; padding: 3px 10px;
+    background: var(--bg-soft);
+  }
+  .demo-caption { font-size: 0.92rem; color: var(--muted); flex: 1 1 300px; }
+  .demo-caption b.bad { color: var(--red); }
+  .demo-caption b.good { color: var(--green); }
+
+  /* ---------- Strategy cards ---------- */
+  .strategies { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+  .strat { position: relative; overflow: hidden; padding: 24px; }
+  .strat::before {
+    content: ""; position: absolute; inset: 0 0 auto 0; height: 3px;
+    background: linear-gradient(90deg, var(--accent), transparent 70%);
+  }
+  .strat.s1 { --accent: var(--cyan); }
+  .strat.s2 { --accent: var(--orange); }
+  .strat.s3 { --accent: var(--green); }
+  .strat.s4 { --accent: var(--red); }
+  .strat.s5 { --accent: #a78bfa; }
+  .strat.s6 { --accent: #fbbf24; }
+  .strat .emoji { font-size: 1.9rem; display: block; margin-bottom: 8px; }
+  .strat h3 { font-size: 1.08rem; margin-bottom: 2px; }
+  .strat .oneliner { color: var(--faint); font-size: 0.88rem; margin-bottom: 10px; }
+  .strat p.how { color: var(--muted); font-size: 0.93rem; }
+  .strat .mini { margin-top: 12px; display: grid; gap: 6px; font-size: 0.87rem; }
+  .strat .mini span b { font-weight: 700; }
+  .strat .best b { color: var(--green); }
+  .strat .watch b { color: var(--red); }
+  .strat .mini span { color: var(--muted); }
+
+  /* ---------- Table ---------- */
+  .tablewrap { border: 1px solid var(--border); border-radius: var(--radius); overflow-x: auto; background: var(--panel); }
+  table { width: 100%; border-collapse: collapse; font-size: 0.93rem; min-width: 720px; }
+  thead th {
+    text-align: left; font-size: 0.8rem; letter-spacing: 0.08em; text-transform: uppercase;
+    color: var(--faint); padding: 14px 18px; border-bottom: 1px solid var(--border);
+    background: var(--bg-soft);
+  }
+  tbody td { padding: 14px 18px; border-bottom: 1px solid var(--border); color: var(--muted); vertical-align: top; }
+  tbody tr:last-child td { border-bottom: none; }
+  tbody td:first-child { color: var(--text); font-weight: 600; white-space: nowrap; }
+
+  /* ---------- Quiz ---------- */
+  .quiz { display: grid; gap: 18px; }
+  .q { background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px 22px; }
+  .q p.qtext { font-weight: 600; margin-bottom: 12px; }
+  .choices { display: flex; flex-wrap: wrap; gap: 10px; }
+  .choice { position: relative; }
+  .choice input { position: absolute; opacity: 0; }
+  .choice label {
+    display: inline-block; cursor: pointer; font-size: 0.9rem; color: var(--muted);
+    border: 1px solid var(--border); background: var(--bg-soft);
+    padding: 8px 14px; border-radius: 999px; transition: all .15s ease;
+  }
+  .choice input:checked + label {
+    color: var(--orange); border-color: rgba(255,153,0,.5); background: var(--orange-soft);
+  }
+  .choice input:focus-visible + label { outline: 2px solid var(--cyan); outline-offset: 2px; }
+  .result {
+    display: none;
+    border-radius: var(--radius); padding: 22px 24px; border: 1px solid var(--border);
+  }
+  .result.show { display: block; }
+  .result.r1 { background: var(--cyan-soft); border-color: rgba(55,200,232,.4); }
+  .result.r2 { background: var(--orange-soft); border-color: rgba(255,153,0,.4); }
+  .result.r3 { background: var(--green-soft); border-color: rgba(74,222,128,.4); }
+  .result.r4 { background: rgba(167,139,250,.1); border-color: rgba(167,139,250,.4); }
+  .result h3 { margin-bottom: 6px; }
+  .result p { color: var(--muted); font-size: 0.95rem; }
+
+  /* ---------- Tips / TLDR ---------- */
+  .grid3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+  .tip { background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius); padding: 22px; }
+  .tip h3 { font-size: 1rem; margin-bottom: 8px; display: flex; align-items: center; gap: 8px; }
+  .tip p { color: var(--muted); font-size: 0.92rem; }
+  .tip.warn { border-color: rgba(248,113,113,.35); }
+  .tip.warn h3 { color: var(--red); }
+  .tip.good h3 { color: var(--green); }
+
+  .tldr {
+    background:
+      linear-gradient(135deg, rgba(255,153,0,.1), rgba(55,200,232,.08)),
+      var(--panel);
+    border: 1px solid rgba(255,153,0,.35);
+  }
+  .tldr ul { list-style: none; display: grid; gap: 10px; margin-top: 14px; }
+  .tldr li { display: flex; gap: 10px; color: var(--muted); font-size: 0.97rem; }
+  .tldr li::before { content: "✓"; color: var(--green); font-weight: 800; }
+
+  footer {
+    border-top: 1px solid var(--border);
+    padding: 34px 0 48px; margin-top: 40px;
+    color: var(--faint); font-size: 0.85rem;
+  }
+  footer a.backlink { color: var(--orange); font-weight: 600; }
+
+  /* ---------- Reveal animation ---------- */
+  .reveal { opacity: 0; transform: translateY(14px); transition: opacity .5s ease, transform .5s ease; }
+  .reveal.in { opacity: 1; transform: none; }
+  @media (prefers-reduced-motion: reduce) {
+    html { scroll-behavior: auto; }
+    .reveal { opacity: 1; transform: none; transition: none; }
+  }
+
+  /* ---------- Responsive ---------- */
+  @media (max-width: 900px) {
+    .strategies, .grid3 { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<nav class="nav" aria-label="Page sections">
+  <div class="nav-inner">
+    <span class="nav-brand"><span class="dot"></span> Gen AI · ELI5</span>
+    <a class="back" href="../../index.html">← All notes</a>
+    <a href="#why">Why chunking matters</a>
+    <a href="#demo">Watch it cut</a>
+    <a href="#strategies">The strategies</a>
+    <a href="#aws">In Bedrock</a>
+    <a href="#pick">Pick one</a>
+    <a href="#tldr">TL;DR</a>
+  </div>
+</nav>
+
+<header class="hero">
+  <div class="container">
+    <span class="kicker">ELI5 · AWS for Gen AI</span>
+    <h1>Chunking <span class="grad">Strategies</span></h1>
+    <p class="lede">
+      Your AI can only answer from the snippets you feed it. <b>How you cut your documents
+      into snippets decides whether RAG finds wisdom or confetti.</b> Explained like you're five,
+      with a pair of scissors and a library.
+    </p>
+    <div class="badges">
+      <span class="badge">AWS</span>
+      <span class="badge"><b>Bedrock</b> Knowledge Bases</span>
+      <span class="badge"><b>RAG</b> · retrieval quality</span>
+      <span class="badge"><b>Embeddings</b> · vector stores</span>
+    </div>
+  </div>
+</header>
+
+<main class="container">
+
+  <!-- WHY -->
+  <section id="why" class="reveal">
+    <div class="sec-kicker">Step 0</div>
+    <h2>Why does Gen AI care how we cut documents?</h2>
+    <p class="sub">
+      Imagine turning your whole library into <b>index cards</b> so a librarian can find the right
+      card in milliseconds. That's chunking: cutting documents into pieces, turning each piece into
+      a vector (an embedding), and storing them in a vector store. When someone asks a question,
+      the librarian fetches the <em>most similar cards</em> and your LLM answers from those.
+      Three constraints make the cutting matter:
+    </p>
+    <div class="rag">
+      <div class="rag-step">
+        <span class="rag-num">1</span>
+        <div>
+          <h3>Models can only read so much</h3>
+          <p>Embedding models cap input length (a few thousand tokens), and the final prompt must fit the LLM's context window. You physically can't stuff a 200-page PDF into one shot.</p>
+        </div>
+      </div>
+      <div class="rag-step">
+        <span class="rag-num">2</span>
+        <div>
+          <h3>Retrieval matches meanings, not chapters</h3>
+          <p>A chunk's embedding represents <em>that chunk's</em> meaning. A 20-page chunk about ten topics matches nothing well; a one-line fragment matches tightly but says nothing.</p>
+        </div>
+      </div>
+      <div class="rag-step">
+        <span class="rag-num">3</span>
+        <div>
+          <h3>The LLM answers only from what it's given</h3>
+          <p>Top-k chunks are your model's entire world for that answer. Cut the right fact in half across two chunks and retrieval may surface neither half completely.</p>
+        </div>
+      </div>
+    </div>
+    <p class="sub" style="margin-top:22px; margin-bottom:0;">
+      The punchline: <b>RAG quality is decided at the scissors, not at the model.</b> The fanciest
+      LLM can't rescue badly cut chunks.
+    </p>
+  </section>
+
+  <!-- DEMO -->
+  <section id="demo" class="reveal">
+    <div class="sec-kicker">Interactive</div>
+    <h2>Watch the same paragraph get cut two ways</h2>
+    <p class="sub">This is a support wiki paragraph about a robot vacuum. Toggle the strategy and watch where the scissors fall.</p>
+    <div class="card">
+      <div class="demo-btns" role="tablist" aria-label="Chunking strategy">
+        <button class="demo-btn active" id="btn-fixed" role="tab" aria-selected="true">✂️ Fixed-size (8 words)</button>
+        <button class="demo-btn" id="btn-sentence" role="tab" aria-selected="false">📖 Sentence-aware</button>
+      </div>
+
+      <div class="demo-view show" id="view-fixed">
+        <div class="chunks">
+          <span class="chunk t1">The Titan robot vacuum launched in March. It sold</span>
+          <span class="chunk t2">out in two weeks. The battery lasts</span>
+          <span class="chunk t3">90 minutes per charge. Customer reviews praised the</span>
+          <span class="chunk t1">mapping feature. Some users complained about the</span>
+          <span class="chunk t2">price. The company plans a cheaper</span>
+          <span class="chunk t3">model next year. Support requests mostly involve</span>
+          <span class="chunk t1">battery replacements. A waterproof version</span>
+          <span class="chunk t2">is rumored for 2027.</span>
+        </div>
+        <div class="demo-meta">
+          <span class="demo-count">8 chunks</span>
+          <p class="demo-caption">
+            The scissors fell mid-idea: <b class="bad">"sold / out"</b>, <b class="bad">"lasts / 90 minutes"</b>,
+            <b class="bad">"waterproof version / is rumored"</b>. A search for "battery life" may retrieve a
+            chunk that says "The battery lasts" and nothing else. This is what naive splitting does to your retrieval.
+          </p>
+        </div>
+      </div>
+
+      <div class="demo-view" id="view-sentence">
+        <div class="chunks">
+          <span class="chunk t1">The Titan robot vacuum launched in March. It sold out in two weeks.</span>
+          <span class="chunk t2">The battery lasts 90 minutes per charge. Customer reviews praised the mapping feature.</span>
+          <span class="chunk t3">Some users complained about the price. The company plans a cheaper model next year.</span>
+          <span class="chunk t1">Support requests mostly involve battery replacements. A waterproof version is rumored for 2027.</span>
+        </div>
+        <div class="demo-meta">
+          <span class="demo-count">4 chunks</span>
+          <p class="demo-caption">
+            Every chunk now reads as a <b class="good">complete thought</b> — retrieve any one of them and the
+            LLM gets a usable fact. Semantic chunking goes one step further: it splits where the <em>meaning</em>
+            shifts, not just where the punctuation does.
+          </p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- STRATEGIES -->
+  <section id="strategies" class="reveal">
+    <div class="sec-kicker">The contenders</div>
+    <h2>Six ways to hold the scissors</h2>
+    <p class="sub">From dumb-but-predictable to smart-but-expensive. Most production systems start simple and upgrade only where retrieval measurably fails.</p>
+
+    <div class="strategies">
+      <div class="card strat s1">
+        <span class="emoji" aria-hidden="true">📏</span>
+        <h3>Fixed-size</h3>
+        <p class="oneliner">Chop every N tokens, done.</p>
+        <p class="how">Every chunk is the same size (say 300 tokens), often with an overlap so boundary ideas aren't lost. Uniform, predictable, cheap.</p>
+        <div class="mini">
+          <span class="best"><b>✅ Best for:</b> uniform text, quick baselines, when you mostly care about cost math.</span>
+          <span class="watch"><b>⚠️ Watch:</b> cuts mid-sentence and mid-idea without overlap — see the demo above.</span>
+        </div>
+      </div>
+
+      <div class="card strat s2">
+        <span class="emoji" aria-hidden="true">📖</span>
+        <h3>Recursive / sentence-aware</h3>
+        <p class="oneliner">Split where the text has seams.</p>
+        <p class="how">Try paragraphs first, then sentences, then words — until pieces fit the target size. The text's own structure does the cutting. This is the classic default (LangChain's RecursiveCharacterTextSplitter, Bedrock KB's default).</p>
+        <div class="mini">
+          <span class="best"><b>✅ Best for:</b> most prose — reports, wikis, articles. Start here.</span>
+          <span class="watch"><b>⚠️ Watch:</b> one giant run-on paragraph still becomes one giant chunk.</span>
+        </div>
+      </div>
+
+      <div class="card strat s3">
+        <span class="emoji" aria-hidden="true">🧠</span>
+        <h3>Semantic</h3>
+        <p class="oneliner">Split where the meaning shifts.</p>
+        <p class="how">Embed each sentence, then cut wherever similarity between neighbors drops off — so "battery spec" and "review complaints" don't share a card even though they share a paragraph.</p>
+        <div class="mini">
+          <span class="best"><b>✅ Best for:</b> docs that hop between topics; retrieval quality is worth extra compute.</span>
+          <span class="watch"><b>⚠️ Watch:</b> needs an extra embedding pass; tuning the breakpoint is fiddly.</span>
+        </div>
+      </div>
+
+      <div class="card strat s4">
+        <span class="emoji" aria-hidden="true">🧱</span>
+        <h3>Hierarchical (parent-child)</h3>
+        <p class="oneliner">Search the small card, return the whole page.</p>
+        <p class="how">Cut tiny children for precise matching, but each child remembers its big parent section. Retrieval hits the child; the LLM receives the parent — precision <em>and</em> context.</p>
+        <div class="mini">
+          <span class="best"><b>✅ Best for:</b> contracts, legal and medical text where fragments aren't enough.</span>
+          <span class="watch"><b>⚠️ Watch:</b> bigger prompts (parents are large); more config to tune.</span>
+        </div>
+      </div>
+
+      <div class="card strat s5">
+        <span class="emoji" aria-hidden="true">🧾</span>
+        <h3>Layout / document-aware</h3>
+        <p class="oneliner">Respect headings, tables, and code.</p>
+        <p class="how">Parse the document's real structure: split on headings, keep each table or code block whole, attach Q&amp;A pairs together. Chunking that knows it's reading a PDF, not a text stream.</p>
+        <div class="mini">
+          <span class="best"><b>✅ Best for:</b> manuals, financial tables, technical docs, codebases.</span>
+          <span class="watch"><b>⚠️ Watch:</b> needs parsers; messy scanned PDFs will fight you.</span>
+        </div>
+      </div>
+
+      <div class="card strat s6">
+        <span class="emoji" aria-hidden="true">🏷️</span>
+        <h3>Contextual enrichment</h3>
+        <p class="oneliner">Every chunk carries its address.</p>
+        <p class="how">Prepend context to each chunk: document title, section path ("Warranty &gt; Refunds &gt; EU"), or even a model-written summary of where the chunk sits — so "…within 30 days…" makes sense on its own card.</p>
+        <div class="mini">
+          <span class="best"><b>✅ Best for:</b> large libraries where chunks like "it applies to returns" are ambiguous alone.</span>
+          <span class="watch"><b>⚠️ Watch:</b> extra tokens per chunk (and per dollar); Bedrock KB offers this as a newer option.</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- AWS -->
+  <section id="aws" class="reveal">
+    <div class="sec-kicker">On AWS</div>
+    <h2>How this shows up in Bedrock</h2>
+    <p class="sub">
+      In a typical AWS RAG stack: docs live in <b>S3</b> → <b>Bedrock Knowledge Bases</b> parses,
+      chunks (with your chosen strategy), and embeds them (Titan Embeddings or a partner model) →
+      vectors land in a store like <b>S3 Vectors, OpenSearch, or Aurora pgvector</b> → queries
+      retrieve top-k chunks and optionally <b>rerank</b> them before the model answers.
+    </p>
+    <div class="tablewrap">
+      <table>
+        <thead>
+          <tr><th>Bedrock KB option</th><th>What it does</th><th>Good fit</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>Default</td><td>Recursive-style split, ~300 tokens with ~20% overlap</td><td>The "just start" button — solid for most prose</td></tr>
+          <tr><td>Fixed-size</td><td>Chunks of a set token size + overlap you choose</td><td>Uniform corpora; predictable cost</td></tr>
+          <tr><td>Hierarchical</td><td>Parent-child layers: search children, return parents</td><td>Contracts, policies, anything precision-critical</td></tr>
+          <tr><td>Semantic</td><td>Embed sentences, split on similarity breakpoints</td><td>Topic-hopping documents</td></tr>
+          <tr><td>No chunking</td><td>Small files stay whole (one chunk per doc)</td><td>FAQs, Q&amp;A pairs, short docs</td></tr>
+          <tr><td>Custom (Lambda)</td><td>Your own Lambda function does the cutting</td><td>Layout-aware rules, table handling, house style</td></tr>
+          <tr><td>Contextual chunking</td><td>A model prepends situating context to each chunk (newer — check current docs)</td><td>Big ambiguous libraries with repeated phrasing</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="sub" style="margin-top:18px; margin-bottom:0;">
+      Two size rules to respect: chunks must fit the <b>embedding model's input limit</b> (e.g. Titan
+      Embeddings v2 accepts ~8k tokens), and <code>top-k × chunk size</code> must fit the
+      <b>LLM's context window</b> with room to spare. Bigger chunks = fewer top-k slots you can afford.
+    </p>
+  </section>
+
+  <!-- PICK -->
+  <section id="pick" class="reveal">
+    <div class="sec-kicker">Decision helper</div>
+    <h2>So… how should I cut my docs?</h2>
+    <p class="sub">Pick the closest match — you can always re-cut later (it just costs a re-embed).</p>
+    <div class="quiz">
+      <div class="q">
+        <p class="qtext">What are you feeding the RAG pipeline?</p>
+        <div class="choices">
+          <span class="choice"><input type="radio" name="docs" id="d-small" value="small"><label for="d-small">Short stuff — FAQs, Q&amp;A pairs, small docs</label></span>
+          <span class="choice"><input type="radio" name="docs" id="d-prose" value="prose"><label for="d-prose">Long flowing prose — reports, wikis, books</label></span>
+          <span class="choice"><input type="radio" name="docs" id="d-struct" value="struct"><label for="d-struct">Structured docs — manuals, tables, code</label></span>
+          <span class="choice"><input type="radio" name="docs" id="d-precision" value="precision"><label for="d-precision">Precision-critical — legal, medical, contracts</label></span>
+        </div>
+      </div>
+      <div id="result" class="result" role="status" aria-live="polite">
+        <h3 id="result-title"></h3>
+        <p id="result-body"></p>
+      </div>
+    </div>
+  </section>
+
+  <!-- TIPS -->
+  <section class="reveal">
+    <div class="sec-kicker">Fine print</div>
+    <h2>Gotchas worth knowing</h2>
+    <div class="grid3">
+      <div class="tip warn">
+        <h3>⚠️ Overlap isn't optional</h3>
+        <p>Ideas that straddle a boundary get amputated without 10–20% overlap. The cost: some text is stored twice — that's the cheap insurance.</p>
+      </div>
+      <div class="tip warn">
+        <h3>⚠️ Changing strategy = re-embedding everything</h3>
+        <p>New chunks mean new vectors for the whole corpus. Treat a chunking change like a schema migration: test retrieval quality first, then commit.</p>
+      </div>
+      <div class="tip warn">
+        <h3>⚠️ Tables hate being split</h3>
+        <p>Naive chunking shreds a pricing table into meaningless rows. Keep tables whole, or extract them into descriptive sentences before embedding.</p>
+      </div>
+      <div class="tip good">
+        <h3>✅ Chunks need their address</h3>
+        <p>"…within 30 days…" is useless alone. Prepend "Acme Policy &gt; Returns &gt; EU" and suddenly every card is self-contained. Cheap, high-impact fix.</p>
+      </div>
+      <div class="tip good">
+        <h3>✅ Small chunks + rerank is a power combo</h3>
+        <p>Retrieve many small, precise chunks, then let Bedrock Rerank pick the best few to send to the LLM. Precision at search time, richness at prompt time.</p>
+      </div>
+      <div class="tip good">
+        <h3>✅ Evaluate, don't vibe</h3>
+        <p>Build a small set of real questions with known source passages, and measure retrieval hit-rate per strategy. The best chunking is the one that wins <em>your</em> eval, not the trendiest one.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- TLDR -->
+  <section id="tldr" class="reveal">
+    <div class="card tldr">
+      <div class="sec-kicker" style="color:var(--orange);">TL;DR</div>
+      <h2>Explain it to me in four lines</h2>
+      <ul>
+        <li>Chunking = cutting your library into index cards. <b>RAG quality is decided at the scissors, not at the model.</b></li>
+        <li>Start with <b>Bedrock KB's default</b> (recursive, ~300 tokens, ~20% overlap) — it's right for most prose.</li>
+        <li>Upgrade deliberately: <b>layout-aware</b> for tables/manuals, <b>parent-child or semantic + rerank</b> for precision, <b>no chunking</b> for tiny docs — and give every chunk its address (title + section path).</li>
+        <li>Re-cutting means re-embedding everything, so <b>evaluate with real questions first</b> — then commit.</li>
+      </ul>
+    </div>
+  </section>
+
+</main>
+
+<footer>
+  <div class="container">
+    An ELI5 explainer, not official AWS documentation. Defaults and options evolve — verify against
+    <a href="https://docs.aws.amazon.com/bedrock/latest/userguide/knowledge-base-chunking.html" target="_blank" rel="noopener">Bedrock Knowledge Bases chunking docs</a> ·
+    <a class="backlink" href="../../index.html">← Back to all notes</a>
+  </div>
+</footer>
+
+<script>
+  // Reveal-on-scroll
+  const io = new IntersectionObserver((entries) => {
+    for (const e of entries) {
+      if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); }
+    }
+  }, { threshold: 0.12 });
+  document.querySelectorAll('.reveal').forEach((el) => io.observe(el));
+
+  // Chunk-cut demo toggle
+  const btnFixed = document.getElementById('btn-fixed');
+  const btnSentence = document.getElementById('btn-sentence');
+  const viewFixed = document.getElementById('view-fixed');
+  const viewSentence = document.getElementById('view-sentence');
+
+  function show(mode) {
+    const fixed = mode === 'fixed';
+    btnFixed.classList.toggle('active', fixed);
+    btnSentence.classList.toggle('active', !fixed);
+    btnFixed.setAttribute('aria-selected', String(fixed));
+    btnSentence.setAttribute('aria-selected', String(!fixed));
+    viewFixed.classList.toggle('show', fixed);
+    viewSentence.classList.toggle('show', !fixed);
+  }
+  btnFixed.addEventListener('click', () => show('fixed'));
+  btnSentence.addEventListener('click', () => show('sentence'));
+
+  // Decision helper
+  const result = document.getElementById('result');
+  const title = document.getElementById('result-title');
+  const body = document.getElementById('result-body');
+
+  const answers = {
+    small: {
+      cls: 'r1',
+      heading: '📦 Skip chunking — keep docs whole',
+      text: 'For FAQs and Q&A pairs, one document = one chunk is ideal (Bedrock KB "No chunking"). Each card is a complete, self-contained answer — exactly what retrieval loves. Just respect the embedding model\'s token limit.'
+    },
+    prose: {
+      cls: 'r2',
+      heading: '📖 Default recursive chunking',
+      text: 'Long flowing prose is what Bedrock KB\'s default (~300 tokens, ~20% overlap) was tuned for. Start there, add title/section context to each chunk, and only move to semantic if retrieval evals say so.'
+    },
+    struct: {
+      cls: 'r3',
+      heading: '🧾 Layout-aware cutting',
+      text: 'Structured documents need structure-respecting splits: on headings, with tables kept whole and code split on functions. Bedrock KB\'s Custom (Lambda) chunking or your own pre-processing pipeline is the way.'
+    },
+    precision: {
+      cls: 'r4',
+      heading: '🎯 Parent-child or semantic + rerank',
+      text: 'Precision-critical text wants both sharp matching and rich context: Hierarchical (parent-child) chunking so the LLM sees the full section, or small chunks + Bedrock Rerank to feed only the best passages. Budget extra tokens for the larger prompts.'
+    }
+  };
+
+  function recommend() {
+    const sel = document.querySelector('input[name="docs"]:checked');
+    if (!sel) { result.classList.remove('show'); return; }
+    const a = answers[sel.value];
+    result.classList.remove('r1', 'r2', 'r3', 'r4');
+    result.classList.add(a.cls, 'show');
+    title.textContent = a.heading;
+    body.textContent = a.text;
+  }
+  document.querySelectorAll('input[name="docs"]').forEach((el) => el.addEventListener('change', recommend));
+</script>
+
+</body>
+</html>
