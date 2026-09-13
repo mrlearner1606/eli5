@@ -245,44 +245,47 @@
   const searchInput = document.getElementById('search');
   const cards = Array.from(document.querySelectorAll('.card'));
   const noResults = document.getElementById('no-results');
-  const awsGroup = document.getElementById('aws-group');
-  const awsToggle = document.getElementById('aws-toggle');
-  const awsCount = document.getElementById('aws-count');
   const moreGroup = document.getElementById('more-group');
 
-  const awsCards = cards.filter((c) => c.closest('#aws-group'));
-
-  function updateCount(n) {
-    awsCount.textContent = n === 1 ? '1 page' : n + ' pages';
-  }
-  updateCount(awsCards.length);
-
-  // Collapsible AWS section
-  awsToggle.addEventListener('click', () => {
-    const expanded = awsToggle.getAttribute('aria-expanded') === 'true';
-    awsToggle.setAttribute('aria-expanded', String(!expanded));
-    awsGroup.classList.toggle('collapsed', expanded);
+  // Collapsible groups: every .group with a .toggle button works automatically
+  const groups = Array.from(document.querySelectorAll('.group')).map((group) => {
+    const toggle = group.querySelector('.group-title.toggle');
+    const groupCards = Array.from(group.querySelectorAll('.card'));
+    const count = toggle ? toggle.querySelector('.count') : null;
+    if (count) {
+      const n = groupCards.length;
+      count.textContent = n === 1 ? '1 page' : n + ' pages';
+    }
+    if (toggle) {
+      toggle.addEventListener('click', () => {
+        const expanded = toggle.getAttribute('aria-expanded') === 'true';
+        toggle.setAttribute('aria-expanded', String(!expanded));
+        group.classList.toggle('collapsed', expanded);
+      });
+    }
+    return { group, toggle, cards: groupCards, count };
   });
 
   // Live search filter
   function applyFilter() {
     const q = searchInput.value.trim().toLowerCase();
     let visible = 0;
-    let awsVisible = 0;
-    cards.forEach((card) => {
-      const match = !q || card.textContent.toLowerCase().includes(q);
-      card.style.display = match ? '' : 'none';
-      if (match) visible++;
-      if (match && card.closest('#aws-group')) awsVisible++;
+    groups.forEach(({ group, toggle, cards: groupCards, count }) => {
+      let groupVisible = 0;
+      groupCards.forEach((card) => {
+        const match = !q || card.textContent.toLowerCase().includes(q);
+        card.style.display = match ? '' : 'none';
+        if (match) { visible++; groupVisible++; }
+      });
+      if (count) count.textContent = groupVisible === 1 ? '1 page' : groupVisible + ' pages';
+      // While searching, auto-expand collapsed groups
+      if (q && toggle) {
+        toggle.setAttribute('aria-expanded', 'true');
+        group.classList.remove('collapsed');
+      }
     });
-    // While searching, auto-expand collapsed groups and hide the placeholder section
-    if (q) {
-      awsToggle.setAttribute('aria-expanded', 'true');
-      awsGroup.classList.remove('collapsed');
-    }
     moreGroup.style.display = q ? 'none' : '';
     noResults.classList.toggle('show', visible === 0);
-    updateCount(awsVisible);
   }
   searchInput.addEventListener('input', applyFilter);
 
