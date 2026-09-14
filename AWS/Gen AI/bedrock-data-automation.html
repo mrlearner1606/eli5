@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ELI5 · Amazon Bedrock Data Automation</title>
+<meta name="description" content="ELI5 guide to Amazon Bedrock Data Automation, standard output, custom blueprints, and projects.">
+<style>
+:root{--bg:#0b0f14;--bg-soft:#10161f;--panel:#131b26;--panel-2:#18212e;--border:#223040;--text:#e8eef4;--muted:#98a6b5;--faint:#6b7a89;--orange:#ff9900;--orange-soft:rgba(255,153,0,.12);--cyan:#37c8e8;--cyan-soft:rgba(55,200,232,.12);--green:#67d391;--radius:16px}*{box-sizing:border-box;margin:0;padding:0}html{scroll-behavior:smooth}body{background:radial-gradient(1200px 500px at 80% -10%,rgba(255,153,0,.07),transparent 60%),radial-gradient(900px 500px at 10% 0%,rgba(55,200,232,.06),transparent 55%),var(--bg);color:var(--text);font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;line-height:1.7;min-height:100vh}a{color:inherit;text-decoration:none}.wrap{max-width:940px;margin:0 auto;padding:0 22px}nav{position:sticky;top:0;z-index:10;background:rgba(11,15,20,.82);backdrop-filter:blur(10px);border-bottom:1px solid var(--border)}nav .wrap{display:flex;align-items:center;justify-content:space-between;gap:16px;padding-top:12px;padding-bottom:12px}nav strong{font-size:.9rem}nav .links{display:flex;gap:14px;flex-wrap:wrap;color:var(--muted);font-size:.84rem}nav .links a:hover{color:var(--text)}header{padding:74px 0 36px}.kicker{display:inline-flex;font-size:12px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--orange);background:var(--orange-soft);border:1px solid rgba(255,153,0,.3);padding:6px 12px;border-radius:999px}h1{margin:20px 0 14px;font-size:clamp(2rem,5vw,3.5rem);line-height:1.1;letter-spacing:-.025em}.grad{background:linear-gradient(90deg,var(--orange),#ffb84d 45%,var(--cyan));-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}.lede{color:var(--muted);max-width:720px;font-size:1.03rem}.hero-card{margin:20px 0 34px;background:linear-gradient(180deg,var(--panel),var(--bg-soft));border:1px solid var(--border);border-radius:var(--radius);padding:24px}.hero-card strong{color:var(--orange)}main{padding-bottom:60px}section{margin:38px 0}.section-title{font-size:1.45rem;margin-bottom:14px}.section-title span{color:var(--cyan)}p{margin:10px 0;color:var(--muted)}.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}.card{background:linear-gradient(180deg,var(--panel),var(--bg-soft));border:1px solid var(--border);border-radius:var(--radius);padding:20px}.card h3{margin-bottom:7px}.icon{font-size:1.6rem}.analogy{border-left:4px solid var(--orange);background:var(--orange-soft);border-radius:0 14px 14px 0;padding:20px;margin:16px 0}.analogy strong{color:var(--orange)}table{width:100%;border-collapse:collapse;overflow:hidden;border:1px solid var(--border);border-radius:14px;background:var(--panel)}th,td{text-align:left;padding:13px 14px;border-bottom:1px solid var(--border);vertical-align:top}th{color:var(--text);background:var(--panel-2)}td{color:var(--muted)}tr:last-child td{border-bottom:0}.flow{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;align-items:stretch}.step{background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:16px;text-align:center}.step b{display:block;color:var(--cyan);margin-bottom:5px}.code{background:#0a0d11;border:1px solid var(--border);border-radius:14px;padding:18px;overflow:auto;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:.88rem;color:#d8e2eb}.callout{background:var(--cyan-soft);border:1px solid rgba(55,200,232,.28);border-radius:14px;padding:17px 18px}.callout b{color:var(--cyan)}.gotchas{display:grid;gap:12px}.gotcha{background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:16px 18px}.gotcha b{color:var(--orange)}.reveal{opacity:0;transform:translateY(10px);transition:opacity .5s ease,transform .5s ease}.reveal.show{opacity:1;transform:none}footer{border-top:1px solid var(--border);padding:28px 0 42px;color:var(--faint);font-size:.84rem}@media(max-width:760px){.grid,.flow{grid-template-columns:1fr}.flow{gap:8px}nav .links{display:none}header{padding-top:52px}}@media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}.reveal{opacity:1;transform:none;transition:none}}
+</style>
+</head>
+<body>
+<nav><div class="wrap"><strong>Amazon Bedrock · ELI5</strong><div class="links"><a href="#idea">Idea</a><a href="#flow">Flow</a><a href="#outputs">Outputs</a><a href="#blueprints">Blueprints</a><a href="#gotchas">Gotchas</a></div></div></nav>
+<header class="wrap reveal">
+<span class="kicker">AWS · Gen AI</span>
+<h1>Bedrock Data Automation, <span class="grad">explained simply</span></h1>
+<p class="lede">A managed way to turn messy files like documents, images, audio, and video into useful structured or summarized information without building a pile of separate extraction pipelines yourself.</p>
+<div class="hero-card"><strong>ELI5:</strong> Think of Bedrock Data Automation (BDA) like a smart mailroom. You hand it a PDF, image, audio file, or video. It looks at the contents, follows the output instructions you configured, and gives the useful information back.</div>
+</header>
+<main class="wrap">
+<section id="idea" class="reveal">
+<h2 class="section-title">🧒 Why does it exist?</h2>
+<p>Real-world data is messy. A PDF may contain paragraphs, tables, checkboxes, signatures, and pictures. An audio file is just sound. A video contains scenes over time.</p>
+<p>Instead of writing a different extraction system for every file type, BDA gives you one managed workflow for <b>documents, images, video, and audio</b>.</p>
+<div class="analogy"><strong>Think of it like a super clerk.</strong><br>Give the clerk a stack of forms, photos, recordings, or videos. The clerk can produce the normal useful information, or you can give a very specific checklist saying exactly what fields you want.</div>
+</section>
+
+<section class="reveal">
+<h2 class="section-title">🎯 The big idea</h2>
+<div class="grid">
+<div class="card"><div class="icon">📄</div><h3>Input</h3><p>Documents, images, audio, or video.</p></div>
+<div class="card"><div class="icon">🧠</div><h3>Understand</h3><p>BDA analyzes the content according to its configuration.</p></div>
+<div class="card"><div class="icon">📦</div><h3>Output</h3><p>Standard results, or custom structured results when you define what to extract.</p></div>
+</div>
+</section>
+
+<section id="flow" class="reveal">
+<h2 class="section-title">🔄 How the basic workflow works</h2>
+<div class="flow">
+<div class="step"><b>1. Create</b>Project</div>
+<div class="step"><b>2. Configure</b>Outputs</div>
+<div class="step"><b>3. Invoke</b>Analysis</div>
+<div class="step"><b>4. Process</b>Your file</div>
+<div class="step"><b>5. Retrieve</b>Results</div>
+</div>
+<p>The AWS API workflow is essentially create/configure a project, invoke the analysis, and retrieve the result. Custom output can be driven by a Blueprint.</p>
+</section>
+
+<section id="outputs" class="reveal">
+<h2 class="section-title">📤 Standard vs custom output</h2>
+<table>
+<thead><tr><th>Type</th><th>ELI5 meaning</th><th>When to use it</th></tr></thead>
+<tbody>
+<tr><td><b>Standard output</b></td><td>“Give me the normal useful information from this kind of file.”</td><td>When the default/common information is enough.</td></tr>
+<tr><td><b>Custom output</b></td><td>“Here is my checklist. Extract these exact fields.”</td><td>When your application needs a specific schema.</td></tr>
+</tbody>
+</table>
+<p>BDA always provides standard output, while custom output lets you tailor extraction with Blueprints. Custom output is available for documents, audio, and images; video uses standard output configuration.</p>
+</section>
+
+<section id="blueprints" class="reveal">
+<h2 class="section-title">🧩 What is a Blueprint?</h2>
+<p>A Blueprint is basically your <b>“what exactly do I want?”</b> instruction sheet.</p>
+<div class="analogy"><strong>Example: insurance claim PDF</strong><br>Instead of asking “understand this PDF,” your Blueprint can define fields such as <code>claim_number</code>, <code>customer_name</code>, <code>date_of_loss</code>, and <code>claim_amount</code>, with instructions for extracting them.</div>
+<p>Projects can use multiple document Blueprints to handle different document layouts. AWS currently documents support for up to <b>40 document Blueprints</b> in one project, plus one image Blueprint, one audio Blueprint, and one video Blueprint.</p>
+</section>
+
+<section class="reveal">
+<h2 class="section-title">🏗️ What is a Project?</h2>
+<p>A project is the place where you keep the rules for how BDA should process your files.</p>
+<div class="grid">
+<div class="card"><h3>Standard settings</h3><p>Control which standard outputs are enabled for each data type.</p></div>
+<div class="card"><h3>Custom settings</h3><p>Attach Blueprints when you need specific fields and extraction logic.</p></div>
+<div class="card"><h3>Stages</h3><p>A project can have <b>DEVELOPMENT</b> and <b>LIVE</b> stages for testing versus production use.</p></div>
+</div>
+</section>
+
+<section class="reveal">
+<h2 class="section-title">🥊 BDA vs building it yourself</h2>
+<table>
+<thead><tr><th>Approach</th><th>What you do</th><th>Big idea</th></tr></thead>
+<tbody>
+<tr><td><b>BDA</b></td><td>Configure project + outputs/Blueprints and invoke the service.</td><td>Managed extraction workflow.</td></tr>
+<tr><td><b>DIY pipeline</b></td><td>Build and maintain parsing, OCR, model calls, schemas, error handling, and orchestration yourself.</td><td>More control, more plumbing.</td></tr>
+</tbody>
+</table>
+<div class="callout"><b>For an exam:</b> remember the mental model <b>Project = rules</b>, <b>Blueprint = exact fields/instructions</b>, <b>Standard output = common information</b>, <b>Custom output = information tailored to your use case</b>.</div>
+</section>
+
+<section class="reveal">
+<h2 class="section-title">💻 API mental model</h2>
+<div class="code">Create project
+      ↓
+Configure standard output / attach Blueprint
+      ↓
+InvokeDataAutomationAsync (or the supported synchronous workflow)
+      ↓
+BDA processes the file
+      ↓
+Check status / retrieve output
+      ↓
+Your application consumes the result</div>
+</section>
+
+<section id="gotchas" class="reveal">
+<h2 class="section-title">⚠️ Gotchas to remember</h2>
+<div class="gotchas">
+<div class="gotcha"><b>1. BDA is not just “OCR.”</b><p>Its goal is broader: automate understanding/extraction from multimodal data, with configurable standard and custom outputs.</p></div>
+<div class="gotcha"><b>2. Blueprint ≠ Project.</b><p>A Blueprint defines what to extract. A Project organizes the processing/output configuration and can reference Blueprints.</p></div>
+<div class="gotcha"><b>3. Custom output is not the same for every modality.</b><p>Current AWS documentation describes custom Blueprints for documents, audio, and images. Video is handled with standard output configuration.</p></div>
+<div class="gotcha"><b>4. Check current regional/service requirements.</b><p>AWS notes service-specific prerequisites and availability can apply, so verify the current Bedrock Data Automation documentation for your target Region before designing production workloads.</p></div>
+</div>
+</section>
+
+<section class="reveal">
+<h2 class="section-title">🧠 TL;DR</h2>
+<div class="hero-card"><strong>Bedrock Data Automation = “Give AWS a messy file, tell it what kind of result you need, and let the managed service do the heavy lifting.”</strong><br><br>Remember: <b>Project = rules</b> · <b>Blueprint = extraction checklist</b> · <b>Standard = common result</b> · <b>Custom = your exact fields</b>.</div>
+</section>
+</main>
+<footer><div class="wrap">ELI5 learning note · Based on current Amazon Bedrock Data Automation documentation. AWS service behavior, limits, and Region availability can change.</div></footer>
+<script>
+const items=document.querySelectorAll('.reveal');
+const io=new IntersectionObserver(entries=>entries.forEach(e=>{if(e.isIntersecting)e.target.classList.add('show')}),{threshold:.08});
+items.forEach(i=>io.observe(i));
+</script>
+</body>
+</html>
