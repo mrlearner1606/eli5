@@ -1,0 +1,596 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ELI5 · AWS Gen AI Fine-Tuning</title>
+<meta name="description" content="Explain-like-I'm-five guide to fine-tuning generative AI models on AWS — what it is, when to use it, and how it compares to RAG, continued pre-training, and distillation.">
+<style>
+  :root {
+    --bg: #0b0f14;
+    --bg-soft: #10161f;
+    --panel: #131b26;
+    --panel-2: #18212e;
+    --border: #223040;
+    --text: #e8eef4;
+    --muted: #98a6b5;
+    --faint: #6b7a89;
+    --orange: #ff9900;
+    --orange-soft: rgba(255, 153, 0, 0.12);
+    --cyan: #37c8e8;
+    --cyan-soft: rgba(55, 200, 232, 0.12);
+    --radius: 16px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background:
+      radial-gradient(1200px 500px at 80% -10%, rgba(255, 153, 0, 0.07), transparent 60%),
+      radial-gradient(900px 500px at 10% 0%, rgba(55, 200, 232, 0.06), transparent 55%),
+      var(--bg);
+    color: var(--text);
+    font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    line-height: 1.7;
+    -webkit-font-smoothing: antialiased;
+    min-height: 100vh;
+  }
+
+  a { color: var(--cyan); }
+  a:hover { color: #6fdaf2; }
+  code {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 0.85em; color: var(--cyan);
+    background: var(--cyan-soft); border-radius: 6px; padding: 1px 6px;
+  }
+
+  .container { max-width: 1080px; margin: 0 auto; padding: 0 24px; width: 100%; }
+
+  /* ---------- Sticky nav ---------- */
+  .topnav {
+    position: sticky; top: 0; z-index: 10;
+    background: rgba(11, 15, 20, 0.82);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border-bottom: 1px solid var(--border);
+  }
+  .topnav .inner {
+    display: flex; align-items: center; gap: 4px; flex-wrap: wrap;
+    padding: 12px 0;
+  }
+  .topnav .brand {
+    font-weight: 800; letter-spacing: -0.01em; margin-right: 10px;
+    color: var(--orange);
+  }
+  .topnav a.navlink {
+    color: var(--muted); font-size: 0.86rem; font-weight: 600;
+    padding: 6px 11px; border-radius: 999px;
+    transition: color .15s ease, background .15s ease;
+  }
+  .topnav a.navlink:hover { color: var(--text); background: var(--panel-2); }
+  .topnav a.navlink:focus-visible { outline: 2px solid var(--cyan); outline-offset: 2px; }
+
+  /* ---------- Header ---------- */
+  header.page-head { padding: 64px 0 36px; }
+  .kicker {
+    display: inline-flex; align-items: center; gap: 8px;
+    font-size: 12px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase;
+    color: var(--orange);
+    background: var(--orange-soft);
+    border: 1px solid rgba(255, 153, 0, 0.3);
+    padding: 6px 12px; border-radius: 999px;
+  }
+  h1 {
+    margin: 20px 0 12px;
+    font-size: clamp(2rem, 5vw, 3rem);
+    line-height: 1.15; letter-spacing: -0.02em; font-weight: 800;
+  }
+  h1 .grad {
+    background: linear-gradient(90deg, var(--orange) 0%, #ffb84d 45%, var(--cyan) 100%);
+    -webkit-background-clip: text; background-clip: text;
+    -webkit-text-fill-color: transparent; color: transparent;
+  }
+  .lede { color: var(--muted); max-width: 640px; }
+
+  /* ---------- Sections ---------- */
+  section { padding: 34px 0 10px; scroll-margin-top: 76px; }
+  .sec-title {
+    display: flex; align-items: center; gap: 12px;
+    font-size: 13px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase;
+    color: var(--cyan); margin-bottom: 18px;
+  }
+  .sec-title::after { content: ""; flex: 1; height: 1px; background: var(--border); }
+
+  h2.sub { font-size: 1.25rem; font-weight: 700; margin: 26px 0 10px; letter-spacing: -0.01em; }
+  h2.sub .num { color: var(--orange); margin-right: 8px; }
+  p + p { margin-top: 12px; }
+  .muted { color: var(--muted); }
+
+  .eli5-box {
+    background: linear-gradient(180deg, var(--panel) 0%, var(--bg-soft) 100%);
+    border: 1px solid rgba(255, 153, 0, 0.35);
+    border-radius: var(--radius);
+    padding: 26px 28px;
+    margin: 8px 0 6px;
+  }
+  .eli5-box .label {
+    display: inline-block; font-size: 11px; font-weight: 700; letter-spacing: .1em;
+    text-transform: uppercase; color: var(--orange);
+    background: var(--orange-soft); border: 1px solid rgba(255,153,0,.3);
+    border-radius: 999px; padding: 2px 10px; margin-bottom: 12px;
+  }
+  .eli5-box p { font-size: 1.12rem; line-height: 1.6; }
+  .eli5-box p strong { color: var(--orange); }
+
+  /* ---------- Cards ---------- */
+  .cards { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }
+  .card {
+    display: flex; align-items: flex-start; gap: 16px;
+    background: linear-gradient(180deg, var(--panel) 0%, var(--bg-soft) 100%);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 20px 22px;
+    transition: border-color .15s ease, transform .15s ease, background .15s ease;
+  }
+  .card:hover {
+    border-color: rgba(255, 153, 0, 0.45);
+    transform: translateY(-2px);
+    background: linear-gradient(180deg, var(--panel-2) 0%, var(--panel) 100%);
+  }
+  .card .icon {
+    flex: 0 0 auto; width: 44px; height: 44px; border-radius: 12px;
+    display: grid; place-items: center; font-size: 21px;
+    background: var(--cyan-soft); border: 1px solid rgba(55, 200, 232, 0.3);
+  }
+  .card h3 { font-size: 1rem; font-weight: 700; margin-bottom: 4px; }
+  .card p { color: var(--muted); font-size: 0.9rem; }
+
+  /* ---------- Analogy ---------- */
+  .analogy {
+    display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    margin-top: 16px;
+  }
+  .analogy .scene {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 22px 24px;
+  }
+  .analogy .scene .emoji { font-size: 1.8rem; margin-bottom: 10px; display: block; }
+  .analogy .scene h3 { font-size: 1rem; margin-bottom: 6px; }
+  .analogy .scene p { color: var(--muted); font-size: 0.92rem; }
+  .analogy .scene.win { border-color: rgba(255, 153, 0, 0.45); }
+
+  /* ---------- Steps ---------- */
+  ol.steps { list-style: none; counter-reset: step; display: grid; gap: 12px; margin-top: 6px; }
+  ol.steps li {
+    counter-increment: step;
+    display: flex; gap: 16px; align-items: flex-start;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 18px 22px;
+  }
+  ol.steps li::before {
+    content: counter(step);
+    flex: 0 0 auto;
+    width: 34px; height: 34px; border-radius: 10px;
+    display: grid; place-items: center;
+    font-weight: 800; font-size: 0.95rem;
+    color: #0b0f14;
+    background: linear-gradient(135deg, var(--orange), #ffb84d);
+  }
+  ol.steps li strong { display: block; margin-bottom: 2px; }
+  ol.steps li span.desc { color: var(--muted); font-size: 0.93rem; }
+
+  /* ---------- Tables ---------- */
+  .tablewrap {
+    overflow-x: auto;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    margin-top: 6px;
+  }
+  table { width: 100%; border-collapse: collapse; min-width: 720px; font-size: 0.92rem; }
+  caption { text-align: left; padding: 0; }
+  th, td { text-align: left; padding: 13px 16px; vertical-align: top; }
+  thead th {
+    font-size: 0.72rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase;
+    color: var(--muted);
+    border-bottom: 1px solid var(--border);
+  }
+  tbody tr + tr td { border-top: 1px solid rgba(34, 48, 64, 0.6); }
+  tbody td:first-child { font-weight: 700; color: var(--text); white-space: nowrap; }
+  tbody td { color: var(--muted); }
+  tbody tr.hi td { background: rgba(255, 153, 0, 0.06); }
+  tbody tr.hi td:first-child { color: var(--orange); }
+  .pill {
+    display: inline-block; font-size: 0.72rem; font-weight: 700; letter-spacing: .06em;
+    text-transform: uppercase; border-radius: 999px; padding: 2px 9px; white-space: nowrap;
+  }
+  .pill.o { color: var(--orange); background: var(--orange-soft); border: 1px solid rgba(255,153,0,.3); }
+  .pill.c { color: var(--cyan); background: var(--cyan-soft); border: 1px solid rgba(55,200,232,.3); }
+
+  /* ---------- Gotchas ---------- */
+  .gotchas { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); }
+  .gotcha {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--orange);
+    border-radius: 12px;
+    padding: 16px 20px;
+  }
+  .gotcha strong { display: block; margin-bottom: 4px; }
+  .gotcha p { color: var(--muted); font-size: 0.9rem; }
+
+  /* ---------- TLDR ---------- */
+  .tldr {
+    background: linear-gradient(180deg, var(--panel) 0%, var(--bg-soft) 100%);
+    border: 1px solid rgba(55, 200, 232, 0.35);
+    border-radius: var(--radius);
+    padding: 26px 28px;
+  }
+  .tldr ul { list-style: none; display: grid; gap: 10px; }
+  .tldr li { padding-left: 26px; position: relative; }
+  .tldr li::before {
+    content: "✓"; position: absolute; left: 0; top: 0;
+    color: var(--orange); font-weight: 800;
+  }
+  .tldr li strong { color: var(--cyan); }
+
+  /* ---------- Footer ---------- */
+  footer {
+    margin-top: 56px;
+    border-top: 1px solid var(--border);
+    padding: 30px 0 44px;
+    color: var(--faint); font-size: 0.85rem;
+  }
+  footer .back {
+    display: inline-block; margin-bottom: 14px;
+    color: var(--orange); font-weight: 700; font-size: 0.9rem;
+  }
+  footer a { color: var(--cyan); }
+
+  /* ---------- Reveal ---------- */
+  .reveal { opacity: 0; transform: translateY(14px); transition: opacity .5s ease, transform .5s ease; }
+  .reveal.in { opacity: 1; transform: none; }
+  @media (prefers-reduced-motion: reduce) {
+    .reveal { opacity: 1; transform: none; transition: none; }
+    .card, .card:hover { transition: none; transform: none; }
+  }
+
+  /* ---------- Focus ---------- */
+  a:focus-visible, button:focus-visible {
+    outline: 2px solid var(--cyan); outline-offset: 3px; border-radius: 4px;
+  }
+
+  @media (max-width: 560px) {
+    header.page-head { padding: 44px 0 24px; }
+    section { padding: 26px 0 8px; }
+    .eli5-box, .tldr { padding: 20px; }
+    .container { padding: 0 18px; }
+  }
+</style>
+</head>
+<body>
+
+<nav class="topnav" aria-label="Page sections">
+  <div class="container inner">
+    <span class="brand">ELI5</span>
+    <a class="navlink" href="#eli5">ELI5</a>
+    <a class="navlink" href="#why">Why it exists</a>
+    <a class="navlink" href="#analogy">Analogy</a>
+    <a class="navlink" href="#how">How it works</a>
+    <a class="navlink" href="#compare">Side-by-side</a>
+    <a class="navlink" href="#bedrock">On Bedrock</a>
+    <a class="navlink" href="#gotchas">Gotchas</a>
+    <a class="navlink" href="#tldr">TL;DR</a>
+  </div>
+</nav>
+
+<header class="page-head container">
+  <span class="kicker">AWS · Gen AI</span>
+  <h1>Fine-Tuning, <span class="grad">explained simply</span></h1>
+  <p class="lede">
+    What it means to take a general-purpose AI model and re-train it on <em>your</em> examples —
+    and how that differs from RAG, continued pre-training, and distillation on AWS.
+  </p>
+</header>
+
+<main class="container">
+
+  <!-- ============ ELI5 ============ -->
+  <section id="eli5" aria-labelledby="eli5-title">
+    <h2 class="sec-title reveal" id="eli5-title">The one-line version</h2>
+    <div class="eli5-box reveal">
+      <span class="label">ELI5</span>
+      <p>
+        <strong>Fine-tuning is sending a smart intern to bootcamp for your specific job.</strong>
+        The model already knows how to read, write, and reason — you're just drilling it on
+        <em>your</em> way of doing things until it gets them right, every time, without reminders.
+      </p>
+    </div>
+    <p class="muted reveal" style="margin-top:14px; max-width: 760px;">
+      A foundation model (like Amazon Nova or Meta Llama on Amazon Bedrock) was trained on a huge
+      slice of the internet. That makes it a brilliant generalist — but a generalist doesn't know
+      your company's tone, your JSON output format, or how your support tickets should be classified.
+      Fine-tuning continues the model's training on a small, carefully chosen set of
+      <strong>your</strong> examples, nudging its internal settings ("weights") toward your task.
+    </p>
+  </section>
+
+  <!-- ============ WHY ============ -->
+  <section id="why" aria-labelledby="why-title">
+    <h2 class="sec-title reveal" id="why-title">Why does it exist?</h2>
+    <div class="cards">
+      <div class="card reveal">
+        <span class="icon" aria-hidden="true">🎭</span>
+        <div>
+          <h3>Prompting only steers so far</h3>
+          <p>You can beg a model in the prompt to "always answer in strict JSON with these fields" — and it will obey <em>mostly</em>. Fine-tuning bakes the behavior into the model, so you stop paying the tax of long instructions on every call.</p>
+        </div>
+      </div>
+      <div class="card reveal">
+        <span class="icon" aria-hidden="true">🎯</span>
+        <div>
+          <h3>Quality on one task beats quality on all tasks</h3>
+          <p>A base model is a jack of all trades. Fine-tuned on 1,000 great examples of <em>your</em> task, a smaller, cheaper model can outperform the giant generalist — at lower cost and latency.</p>
+        </div>
+      </div>
+      <div class="card reveal">
+        <span class="icon" aria-hidden="true">🧠</span>
+        <div>
+          <h3>Behavior, not encyclopedias</h3>
+          <p>Fine-tuning is for teaching <em>style, format, and judgment</em>. It is famously bad at reliably storing fresh facts — that's RAG's job (more on that below).</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ ANALOGY ============ -->
+  <section id="analogy" aria-labelledby="analogy-title">
+    <h2 class="sec-title reveal" id="analogy-title">The kitchen analogy</h2>
+    <p class="muted reveal">
+      Imagine you run a restaurant and you hire a world-class chef who has cooked everything, everywhere.
+      Three ways to get the dishes you want:
+    </p>
+    <div class="analogy">
+      <div class="scene reveal">
+        <span class="emoji" aria-hidden="true">🗣️</span>
+        <h3>Prompting — shout instructions</h3>
+        <p>"Make it less salty, plate it our way, use our garnish!" Works… until the dinner rush, when the chef occasionally forgets. Cheap, instant, fragile.</p>
+      </div>
+      <div class="scene reveal">
+        <span class="emoji" aria-hidden="true">📚</span>
+        <h3>RAG — hand them a recipe binder</h3>
+        <p>Before each order, the chef looks up your recipe book (your documents, searched at request time). Great for <em>facts</em> that change — today's menu, prices, policy.</p>
+      </div>
+      <div class="scene win reveal">
+        <span class="emoji" aria-hidden="true">🎓</span>
+        <h3>Fine-tuning — culinary bootcamp</h3>
+        <p>The chef spends a week practicing on your recipe cards until your style becomes muscle memory. No reminders needed — it's baked in. That's fine-tuning.</p>
+      </div>
+    </div>
+    <p class="muted reveal" style="margin-top:16px;">
+      Real systems often combine them: a fine-tuned model (your house style) + RAG (today's facts) + a short prompt (tonight's special).
+    </p>
+  </section>
+
+  <!-- ============ HOW ============ -->
+  <section id="how" aria-labelledby="how-title">
+    <h2 class="sec-title reveal" id="how-title">How it works — five steps</h2>
+    <ol class="steps">
+      <li class="reveal">
+        <div>
+          <strong>Gather examples</strong>
+          <span class="desc">Write input→ideal-output pairs: "When a customer asks X, the perfect answer is Y." On Amazon Bedrock these live as JSONL files — one JSON object per line — using a <code>prompt</code>/<code>completion</code> format or the Converse message format for chat models.</span>
+        </div>
+      </li>
+      <li class="reveal">
+        <div>
+          <strong>Split into training + validation</strong>
+          <span class="desc">Most rows go to training; a held-out slice goes to validation so you can see whether the model actually learned the task or just memorized the answers. Bedrock accepts both files in S3.</span>
+        </div>
+      </li>
+      <li class="reveal">
+        <div>
+          <strong>Pick a fine-tunable base model</strong>
+          <span class="desc">Not every model can be fine-tuned. On Bedrock the eligible list includes Amazon Nova models, Meta Llama 3.x, Titan image models, and Anthropic Claude 3 Haiku — the list changes, so check the docs before you design around one.</span>
+        </div>
+      </li>
+      <li class="reveal">
+        <div>
+          <strong>Run the training job</strong>
+          <span class="desc">You set a few knobs — epochs (how many passes over the data), learning rate (how big each correction step is), batch size — and AWS runs the compute. You don't rent or manage GPUs yourself.</span>
+        </div>
+      </li>
+      <li class="reveal">
+        <div>
+          <strong>Evaluate, deploy, invoke</strong>
+          <span class="desc">Compare outputs against your validation set. If it's good, deploy the custom model and call it through its own model ARN — your app code barely changes, just the model ID it points at.</span>
+        </div>
+      </li>
+    </ol>
+  </section>
+
+  <!-- ============ COMPARE ============ -->
+  <section id="compare" aria-labelledby="compare-title">
+    <h2 class="sec-title reveal" id="compare-title">Fine-tuning vs everything else</h2>
+    <p class="muted reveal">
+      The most common mistake in Gen AI architecture is choosing fine-tuning when you needed one of these instead:
+    </p>
+    <div class="tablewrap reveal">
+      <table>
+        <caption class="sr-only" style="display:none">Comparison of model adaptation options</caption>
+        <thead>
+          <tr>
+            <th scope="col">Approach</th>
+            <th scope="col">What it teaches</th>
+            <th scope="col">Reach for it when…</th>
+            <th scope="col">On AWS</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Prompting</td>
+            <td>Nothing — instructions per call</td>
+            <td>Starting out; the task changes often</td>
+            <td><span class="pill c">No training</span></td>
+          </tr>
+          <tr>
+            <td>RAG</td>
+            <td>Facts, at question time</td>
+            <td>Knowledge is large, private, or changes often</td>
+            <td><span class="pill c">Bedrock Knowledge Bases</span></td>
+          </tr>
+          <tr class="hi">
+            <td>Fine-tuning</td>
+            <td>Style, format, task behavior</td>
+            <td>Outputs must be consistent and you have good examples</td>
+            <td><span class="pill o">Bedrock Fine-tuning</span></td>
+          </tr>
+          <tr>
+            <td>Continued pre-training</td>
+            <td>A whole domain's language</td>
+            <td>Deep specialized vocabulary (legal, medical, proprietary code)</td>
+            <td><span class="pill c">Bedrock CPT</span></td>
+          </tr>
+          <tr>
+            <td>Distillation</td>
+            <td>A small model to imitate a big one</td>
+            <td>You need a big model's quality at a small model's cost/latency</td>
+            <td><span class="pill c">Bedrock Model Distillation</span></td>
+          </tr>
+          <tr>
+            <td>Reinforcement fine-tuning</td>
+            <td>Behavior from graded feedback</td>
+            <td>You can score answers automatically; newer capability</td>
+            <td><span class="pill o">Bedrock RFT</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="muted reveal" style="margin-top:14px;">
+      Rule of thumb: <strong>facts → RAG, behavior → fine-tuning, domain language → continued pre-training,
+      cost → distillation.</strong> When in doubt, start with prompting + RAG and reach for fine-tuning
+      once you've collected a few hundred high-quality examples.
+    </p>
+  </section>
+
+  <!-- ============ BEDROCK ============ -->
+  <section id="bedrock" aria-labelledby="bedrock-title">
+    <h2 class="sec-title reveal" id="bedrock-title">Fine-tuning on Amazon Bedrock</h2>
+    <div class="cards">
+      <div class="card reveal">
+        <span class="icon" aria-hidden="true">🧩</span>
+        <div>
+          <h3>Which models</h3>
+          <p>Eligibility varies by model and region — Amazon Nova and Titan, Meta Llama 3.x, and Claude 3 Haiku have been on the list. Newer top-tier models often aren't fine-tunable; check the supported-models page for what's live today.</p>
+        </div>
+      </div>
+      <div class="card reveal">
+        <span class="icon" aria-hidden="true">🗂️</span>
+        <div>
+          <h3>Data format</h3>
+          <p>JSONL: one example per line. Text tasks use <code>{"prompt": ..., "completion": ...}</code>; chat models use the Converse-style <code>messages</code> format with system/user/assistant turns. Minimum record counts vary by model (tens to thousands).</p>
+        </div>
+      </div>
+      <div class="card reveal">
+        <span class="icon" aria-hidden="true">💰</span>
+        <div>
+          <h3>Cost shape</h3>
+          <p>You pay three ways: for <strong>training</strong> (per model's unit — tokens or time, depending on model), a small monthly <strong>storage</strong> fee per custom model, and <strong>inference</strong> — historically via Provisioned Throughput, with on-demand-style custom model deployments now also available. Check current pricing before committing.</p>
+        </div>
+      </div>
+      <div class="card reveal">
+        <span class="icon" aria-hidden="true">🔒</span>
+        <div>
+          <h3>Where your data lives</h3>
+          <p>Training data goes to S3 in <em>your</em> account, and AWS states customer content isn't used to train the underlying base models. The custom model belongs to your account — nobody else can invoke it.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ GOTCHAS ============ -->
+  <section id="gotchas" aria-labelledby="gotchas-title">
+    <h2 class="sec-title reveal" id="gotchas-title">Gotchas · the fine print</h2>
+    <div class="gotchas">
+      <div class="gotcha reveal">
+        <strong>Garbage in, gourmet garbage out</strong>
+        <p>500 clean, diverse, correctly-formatted examples beat 10,000 sloppy ones. The model learns your typos just as eagerly as your intent. Budget most of your effort here.</p>
+      </div>
+      <div class="gotcha reveal">
+        <strong>It teaches behavior, not news</strong>
+        <p>Fine-tuned models are unreliable at recalling specific facts — they interpolate, they don't memorize reliably. Anything that changes (prices, policy, product docs) belongs in RAG.</p>
+      </div>
+      <div class="gotcha reveal">
+        <strong>Overfitting &amp; catastrophic forgetting</strong>
+        <p>Too many epochs and the model parrots your training set and gets worse at everything else. Watch the validation metrics and stop before it memorizes.</p>
+      </div>
+      <div class="gotcha reveal">
+        <strong>Custom ≠ cheap to host</strong>
+        <p>Invoking your custom model has its own pricing separate from on-demand base models — historically via always-on Provisioned Throughput, billed hourly per model unit. Know the number before you ship.</p>
+      </div>
+      <div class="gotcha reveal">
+        <strong>Not every model, not every region</strong>
+        <p>Fine-tuning availability is model- and region-specific, and the roster shifts as models launch. Design with the docs open, not from memory.</p>
+      </div>
+      <div class="gotcha reveal">
+        <strong>You froze a snapshot</strong>
+        <p>Your custom model is based on one version of a base model. When the provider ships a better base, your fine-tune doesn't auto-upgrade — plan to re-train periodically.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ TLDR ============ -->
+  <section id="tldr" aria-labelledby="tldr-title">
+    <h2 class="sec-title reveal" id="tldr-title">TL;DR</h2>
+    <div class="tldr reveal">
+      <ul>
+        <li><strong>Fine-tuning</strong> = continue training a foundation model on your own input→output examples so the behavior becomes permanent.</li>
+        <li>Use it for <strong>style, format, and task consistency</strong> — not for fresh facts (that's <strong>RAG</strong>) and not for whole new domains (that's <strong>continued pre-training</strong>).</li>
+        <li>On <strong>Amazon Bedrock</strong>: JSONL data in S3 → pick an eligible model (Nova, Llama 3.x, Titan, Claude 3 Haiku…) → set epochs / learning rate / batch size → evaluate → deploy and invoke via the custom model ARN.</li>
+        <li>Costs arrive three ways: <strong>training</strong> + <strong>monthly storage</strong> + <strong>inference</strong> — verify current numbers on the pricing page.</li>
+        <li>Start with prompting + RAG; fine-tune once you've banked a few hundred <strong>high-quality</strong> examples.</li>
+      </ul>
+    </div>
+  </section>
+
+</main>
+
+<footer>
+  <div class="container">
+    <a class="back" href="../../index.html">← All ELI5 explainers</a>
+    <p>
+      ⚠️ AWS names, supported models, regions, defaults, and pricing change often — this page is a mental
+      model, not a source of truth. Verify against
+      <a href="https://docs.aws.amazon.com/bedrock/latest/userguide/custom-model-fine-tuning.html">Bedrock fine-tuning docs</a>,
+      <a href="https://docs.aws.amazon.com/bedrock/latest/userguide/model-customization-prepare.html">data prep</a>, and the
+      <a href="https://aws.amazon.com/bedrock/pricing/">Bedrock pricing page</a> before building.
+    </p>
+  </div>
+</footer>
+
+<script>
+  (function () {
+    var reduced = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    var els = Array.prototype.slice.call(document.querySelectorAll('.reveal'));
+    if (reduced || !('IntersectionObserver' in window)) {
+      els.forEach(function (el) { el.classList.add('in'); });
+      return;
+    }
+    var io = new IntersectionObserver(function (entries) {
+      entries.forEach(function (entry) {
+        if (entry.isIntersecting) {
+          entry.target.classList.add('in');
+          io.unobserve(entry.target);
+        }
+      });
+    }, { threshold: 0.12 });
+    els.forEach(function (el) { io.observe(el); });
+  })();
+</script>
+
+</body>
+</html>
