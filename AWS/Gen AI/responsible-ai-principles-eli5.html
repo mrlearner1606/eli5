@@ -1,0 +1,854 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ELI5: Responsible AI — the control room around your model</title>
+<meta name="description" content="The principles of responsible AI explained for AWS Generative AI developers — the eight dimensions, AWS services, architecture, use cases, and certification relevance.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700;800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0A1120;
+    --bg2: #0E1829;
+    --panel: #131F35;
+    --panel2: #18273F;
+    --line: #253754;
+    --text: #E9EFFA;
+    --muted: #93A7C6;
+    --emerald: #35E0A1;
+    --cyan: #4CC9F0;
+    --amber: #FFB020;
+    --rose: #FF6B8A;
+    --violet: #A78BFA;
+    --shadow: 0 18px 45px rgba(0, 0, 0, 0.45);
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    font-family: 'Inter', system-ui, sans-serif;
+    color: var(--text);
+    background:
+      radial-gradient(1100px 620px at 80% -10%, rgba(53, 224, 161, 0.13), transparent 60%),
+      radial-gradient(900px 560px at 5% 0%, rgba(76, 201, 240, 0.12), transparent 55%),
+      linear-gradient(180deg, var(--bg) 0%, var(--bg2) 100%);
+    background-attachment: fixed;
+    line-height: 1.65;
+    padding-bottom: 70px;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { width: min(1060px, 92vw); margin: 0 auto; }
+
+  .mono { font-family: 'JetBrains Mono', monospace; }
+
+  /* ============ NAV ============ */
+  nav {
+    position: sticky;
+    top: 0;
+    z-index: 50;
+    backdrop-filter: blur(14px);
+    background: rgba(10, 17, 32, 0.82);
+    border-bottom: 1px solid var(--line);
+  }
+  .nav-inner {
+    width: min(1060px, 92vw);
+    margin: 0 auto;
+    display: flex;
+    align-items: center;
+    gap: 18px;
+    padding: 12px 0;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .nav-inner::-webkit-scrollbar { display: none; }
+  .brand {
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 600;
+    font-size: 0.82rem;
+    letter-spacing: 0.06em;
+    color: var(--emerald);
+    white-space: nowrap;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .brand::before {
+    content: "";
+    width: 9px; height: 9px; border-radius: 50%;
+    background: var(--emerald);
+    box-shadow: 0 0 12px var(--emerald);
+    animation: pulse 2.4s infinite;
+  }
+  @keyframes pulse { 50% { opacity: 0.35; } }
+  nav a {
+    color: var(--muted);
+    text-decoration: none;
+    font-size: 0.82rem;
+    font-weight: 500;
+    white-space: nowrap;
+    transition: color 0.15s;
+  }
+  nav a:hover { color: var(--text); }
+
+  /* ============ HERO ============ */
+  header.hero {
+    padding: clamp(48px, 9vw, 96px) 0 30px;
+    display: grid;
+    grid-template-columns: 1.15fr 0.85fr;
+    align-items: center;
+    gap: clamp(24px, 5vw, 60px);
+  }
+  .kicker {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.76rem;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: var(--cyan);
+    display: inline-block;
+    margin-bottom: 18px;
+    border: 1px solid rgba(76, 201, 240, 0.35);
+    border-radius: 999px;
+    padding: 6px 14px;
+  }
+  h1 {
+    font-family: 'Sora', sans-serif;
+    font-weight: 800;
+    font-size: clamp(2rem, 4.7vw, 3.3rem);
+    line-height: 1.08;
+    letter-spacing: -0.02em;
+  }
+  h1 .hl {
+    background: linear-gradient(100deg, var(--emerald), var(--cyan));
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+  .hero p.lede {
+    color: var(--muted);
+    font-size: clamp(1rem, 1.7vw, 1.18rem);
+    margin-top: 20px;
+    max-width: 34ch;
+  }
+  .hero p.lede strong { color: var(--text); }
+
+  /* shield */
+  .shield-wrap { display: grid; place-items: center; position: relative; min-height: 280px; }
+  .ring {
+    position: absolute;
+    width: 300px; height: 300px;
+    border: 1px dashed rgba(147, 167, 198, 0.35);
+    border-radius: 50%;
+    animation: spin 40s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .shield {
+    width: 190px; height: 210px;
+    background: linear-gradient(160deg, var(--panel2), var(--panel));
+    border: 1px solid var(--line);
+    clip-path: polygon(50% 0%, 100% 14%, 100% 62%, 50% 100%, 0% 62%, 0% 14%);
+    display: grid;
+    place-items: center;
+    box-shadow: 0 0 60px rgba(53, 224, 161, 0.25);
+    position: relative;
+  }
+  .shield .check {
+    font-size: 3.4rem;
+    filter: drop-shadow(0 0 14px rgba(53, 224, 161, 0.8));
+  }
+  .orb {
+    position: absolute;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.62rem;
+    letter-spacing: 0.02em;
+    color: var(--text);
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    padding: 4px 10px;
+    white-space: nowrap;
+  }
+  .o1 { top: 4%;  left: 50%; transform: translateX(-50%); }
+  .o2 { top: 24%; right: -8%; }
+  .o3 { top: 55%; right: -14%; }
+  .o4 { bottom: 14%; right: 2%; }
+  .o5 { bottom: 2%; left: 50%; transform: translateX(-50%); }
+  .o6 { bottom: 14%; left: 2%; }
+  .o7 { top: 55%; left: -14%; }
+  .o8 { top: 24%; left: -8%; }
+
+  /* ============ SECTIONS ============ */
+  section { padding: clamp(28px, 5vw, 46px) 0; }
+  .sec-head { margin-bottom: 26px; max-width: 62ch; }
+  .sec-num {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.74rem;
+    letter-spacing: 0.2em;
+    color: var(--emerald);
+    display: block;
+    margin-bottom: 10px;
+  }
+  h2 {
+    font-family: 'Sora', sans-serif;
+    font-weight: 700;
+    font-size: clamp(1.4rem, 3vw, 2rem);
+    letter-spacing: -0.01em;
+    line-height: 1.2;
+  }
+  .sec-head p { color: var(--muted); margin-top: 12px; font-size: 1.04rem; }
+  p + p { margin-top: 12px; }
+  strong { color: var(--text); font-weight: 700; }
+  em { font-style: normal; color: var(--emerald); }
+
+  .panel {
+    background: linear-gradient(165deg, var(--panel), var(--panel2));
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    padding: clamp(20px, 3.4vw, 32px);
+    box-shadow: var(--shadow);
+  }
+  .panel + .panel { margin-top: 18px; }
+
+  /* analogy */
+  .analogy {
+    display: grid;
+    grid-template-columns: 64px 1fr;
+    gap: 18px;
+    align-items: start;
+  }
+  .analogy .badge {
+    width: 64px; height: 64px;
+    border-radius: 16px;
+    display: grid; place-items: center;
+    font-size: 1.9rem;
+    background: rgba(53, 224, 161, 0.1);
+    border: 1px solid rgba(53, 224, 161, 0.35);
+  }
+  .analogy h3 { font-family: 'Sora', sans-serif; font-size: 1.15rem; margin-bottom: 6px; }
+  .analogy p { color: var(--muted); font-size: 1rem; }
+
+  /* ============ DIMENSION GRID ============ */
+  .dims {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(238px, 1fr));
+    gap: 14px;
+  }
+  .dim {
+    position: relative;
+    background: linear-gradient(160deg, var(--panel), var(--panel2));
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    padding: 20px 18px 18px;
+    overflow: hidden;
+    transition: transform 0.18s ease, border-color 0.18s ease;
+  }
+  .dim::before {
+    content: "";
+    position: absolute;
+    inset: 0 auto 0 0;
+    width: 4px;
+    background: var(--c, var(--emerald));
+    opacity: 0.9;
+  }
+  .dim:hover { transform: translateY(-4px); border-color: var(--c, var(--emerald)); }
+  .dim .dnum {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.68rem;
+    letter-spacing: 0.14em;
+    color: var(--c, var(--emerald));
+  }
+  .dim .dic { font-size: 1.5rem; display: block; margin: 8px 0 6px; }
+  .dim h3 { font-family: 'Sora', sans-serif; font-size: 1.02rem; margin-bottom: 6px; }
+  .dim p { color: var(--muted); font-size: 0.9rem; line-height: 1.55; }
+  .dim .q {
+    display: block;
+    margin-top: 10px;
+    font-size: 0.82rem;
+    color: var(--text);
+    border-top: 1px dashed var(--line);
+    padding-top: 8px;
+  }
+
+  /* ============ LIFECYCLE ============ */
+  .life {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 0;
+    align-items: stretch;
+  }
+  .stage {
+    position: relative;
+    padding: 20px 16px;
+    border: 1px solid var(--line);
+    border-right: none;
+    background: var(--panel);
+  }
+  .stage:first-child { border-radius: 14px 0 0 14px; }
+  .stage:last-child { border-right: 1px solid var(--line); border-radius: 0 14px 14px 0; }
+  .stage .st {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.66rem;
+    letter-spacing: 0.14em;
+    color: var(--cyan);
+  }
+  .stage h4 { font-family: 'Sora', sans-serif; font-size: 1rem; margin: 8px 0; }
+  .stage ul { list-style: none; }
+  .stage li {
+    font-size: 0.85rem;
+    color: var(--muted);
+    padding: 3px 0 3px 16px;
+    position: relative;
+  }
+  .stage li::before {
+    content: "▸";
+    position: absolute; left: 0;
+    color: var(--emerald);
+  }
+
+  /* ============ ARCHITECTURE ============ */
+  .arch { display: flex; flex-direction: column; gap: 12px; }
+  .layer {
+    display: grid;
+    grid-template-columns: 150px 1fr;
+    gap: 16px;
+    align-items: center;
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    padding: 16px 18px;
+    background: linear-gradient(120deg, var(--panel), var(--panel2));
+    position: relative;
+  }
+  .layer .ltag {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.72rem;
+    letter-spacing: 0.08em;
+    color: var(--lc, var(--emerald));
+    border: 1px solid var(--lc, var(--emerald));
+    border-radius: 8px;
+    padding: 6px 10px;
+    text-align: center;
+  }
+  .layer p { color: var(--muted); font-size: 0.95rem; }
+  .layer p b { color: var(--text); }
+  .arrowdown {
+    text-align: center;
+    color: var(--muted);
+    font-size: 1.1rem;
+    margin: -4px 0;
+  }
+
+  /* ============ SERVICE TABLE ============ */
+  .tablewrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 14px; }
+  table { width: 100%; border-collapse: collapse; min-width: 640px; font-size: 0.94rem; }
+  thead th {
+    text-align: left;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.7rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--cyan);
+    background: var(--panel2);
+    padding: 14px 16px;
+    border-bottom: 1px solid var(--line);
+  }
+  td { padding: 14px 16px; border-bottom: 1px solid var(--line); vertical-align: top; color: var(--muted); }
+  tbody tr:last-child td { border-bottom: none; }
+  tbody tr:hover td { background: rgba(255, 255, 255, 0.02); }
+  td.d { color: var(--text); font-weight: 600; white-space: nowrap; }
+  td .svc { font-family: 'JetBrains Mono', monospace; font-size: 0.85rem; color: var(--emerald); }
+
+  /* ============ USE CASES ============ */
+  .uses { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 14px; }
+  .use {
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    padding: 20px;
+    background: var(--panel);
+  }
+  .use .u-ic { font-size: 1.5rem; }
+  .use h4 { font-family: 'Sora', sans-serif; font-size: 1rem; margin: 8px 0; }
+  .use p { color: var(--muted); font-size: 0.88rem; }
+  .use .controls { margin-top: 10px; display: flex; flex-wrap: wrap; gap: 6px; }
+  .use .chip {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.64rem;
+    letter-spacing: 0.04em;
+    color: var(--text);
+    background: rgba(53, 224, 161, 0.1);
+    border: 1px solid rgba(53, 224, 161, 0.3);
+    border-radius: 999px;
+    padding: 3px 9px;
+  }
+
+  /* ============ CERT ============ */
+  .cert-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+  .cert {
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    padding: 22px;
+    background: var(--panel);
+  }
+  .cert .ex {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.72rem;
+    color: var(--amber);
+    letter-spacing: 0.08em;
+  }
+  .cert h3 { font-family: 'Sora', sans-serif; font-size: 1.1rem; margin: 8px 0; }
+  .cert p { color: var(--muted); font-size: 0.92rem; }
+  .meter { height: 8px; border-radius: 999px; background: var(--bg); border: 1px solid var(--line); margin-top: 14px; overflow: hidden; }
+  .meter span { display: block; height: 100%; background: linear-gradient(90deg, var(--emerald), var(--cyan)); }
+  .meter-label { font-family: 'JetBrains Mono', monospace; font-size: 0.72rem; color: var(--muted); margin-top: 8px; display: flex; justify-content: space-between; }
+
+  /* ============ GOTCHAS ============ */
+  .flaws { display: grid; gap: 12px; }
+  .flaw {
+    display: grid;
+    grid-template-columns: 44px 1fr;
+    gap: 14px;
+    align-items: start;
+    border: 1px solid rgba(255, 107, 138, 0.28);
+    background: rgba(255, 107, 138, 0.06);
+    border-radius: 12px;
+    padding: 16px 18px;
+  }
+  .flaw .x {
+    width: 44px; height: 44px;
+    display: grid; place-items: center;
+    border-radius: 10px;
+    background: rgba(255, 107, 138, 0.12);
+    color: var(--rose);
+    font-size: 1.3rem;
+  }
+  .flaw b { display: block; margin-bottom: 3px; }
+  .flaw p { color: var(--muted); font-size: 0.92rem; }
+
+  /* ============ TLDR ============ */
+  .tldr { display: grid; gap: 10px; counter-reset: t; }
+  .tldr li {
+    list-style: none;
+    display: grid;
+    grid-template-columns: 34px 1fr;
+    gap: 14px;
+    align-items: baseline;
+    font-size: 1rem;
+  }
+  .tldr li::before {
+    counter-increment: t;
+    content: counter(t, decimal-leading-zero);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.78rem;
+    color: var(--emerald);
+  }
+
+  /* ============ SUMMARY ============ */
+  .summary {
+    text-align: center;
+    border: 1px solid transparent;
+    background:
+      linear-gradient(var(--panel), var(--panel)) padding-box,
+      linear-gradient(120deg, var(--emerald), var(--cyan), var(--violet)) border-box;
+    border-radius: 18px;
+    padding: clamp(28px, 5vw, 48px);
+  }
+  .summary h2 { font-size: clamp(1.3rem, 3.4vw, 1.9rem); }
+  .summary .big {
+    font-family: 'Sora', sans-serif;
+    font-weight: 700;
+    font-size: clamp(1.1rem, 2.6vw, 1.5rem);
+    margin-top: 16px;
+    line-height: 1.5;
+  }
+  .summary .big .a { color: var(--emerald); }
+  .summary .big .b { color: var(--cyan); }
+  .summary .big .c { color: var(--violet); }
+
+  footer {
+    text-align: center;
+    color: var(--muted);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.76rem;
+    margin-top: 48px;
+    padding-top: 24px;
+    border-top: 1px solid var(--line);
+  }
+  footer a { color: var(--cyan); text-decoration: none; }
+
+  a:focus-visible, .dim:focus-visible { outline: 2px solid var(--cyan); outline-offset: 3px; }
+
+  @media (max-width: 820px) {
+    header.hero { grid-template-columns: 1fr; }
+    .shield-wrap { order: -1; min-height: 300px; }
+    .life { grid-template-columns: 1fr; }
+    .stage { border-right: 1px solid var(--line); border-radius: 12px !important; margin-bottom: 8px; }
+    .layer { grid-template-columns: 1fr; }
+    .cert-grid { grid-template-columns: 1fr; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    * { animation: none !important; scroll-behavior: auto !important; transition: none !important; }
+  }
+</style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav>
+  <div class="nav-inner">
+    <span class="brand">RESPONSIBLE·AI</span>
+    <a href="#idea">The idea</a>
+    <a href="#dimensions">8 dimensions</a>
+    <a href="#lifecycle">Lifecycle</a>
+    <a href="#architecture">Architecture</a>
+    <a href="#services">AWS services</a>
+    <a href="#usecases">Use cases</a>
+    <a href="#cert">Certification</a>
+    <a href="#gotchas">Gotchas</a>
+    <a href="#tldr">TL;DR</a>
+  </div>
+</nav>
+
+<div class="wrap">
+
+  <!-- HERO -->
+  <header class="hero">
+    <div>
+      <span class="kicker">AWS Gen AI · Explained simply</span>
+      <h1>Your model isn't the product. The <span class="hl">control room</span> around it is.</h1>
+      <p class="lede">Responsible AI is everything that stops a smart-but-confident model from doing <strong>something harmful</strong> — and proves you were watching.</p>
+    </div>
+    <div class="shield-wrap" aria-hidden="true">
+      <div class="ring"></div>
+      <div class="shield"><span class="check">🛡️</span></div>
+      <span class="orb o1">Fairness</span>
+      <span class="orb o2">Explainability</span>
+      <span class="orb o3">Privacy</span>
+      <span class="orb o4">Safety</span>
+      <span class="orb o5">Controllability</span>
+      <span class="orb o6">Veracity</span>
+      <span class="orb o7">Governance</span>
+      <span class="orb o8">Transparency</span>
+    </div>
+  </header>
+
+  <!-- IDEA -->
+  <section id="idea">
+    <div class="sec-head">
+      <span class="sec-num">01 / THE IDEA</span>
+      <h2>A car with a huge engine needs brakes, seatbelts, and a dashboard.</h2>
+      <p>Generative AI is that engine. It's powerful, fast, and — sometimes — terrifyingly confident while being completely wrong.</p>
+    </div>
+    <div class="panel">
+      <div class="analogy">
+        <div class="badge">🚗</div>
+        <div>
+          <h3>Nobody calls brakes "anti-car technology"</h3>
+          <p>Brakes, airbags, mirrors, and warning lights don't make a car slower — they make it <strong>safe enough to actually drive</strong>. Responsible AI is the same set of safety systems for a generative model: filters on the input, checks on the output, monitoring while it runs, and a paper trail for later.</p>
+        </div>
+      </div>
+    </div>
+    <div class="panel">
+      <div class="analogy">
+        <div class="badge" style="background:rgba(76,201,240,.1);border-color:rgba(76,201,240,.35)">🎓</div>
+        <div>
+          <h3>"Responsible" is the exam, not a checkbox</h3>
+          <p>Regulators, customers, and your own legal team will ask one thing: <em>can you show your AI is fair, safe, private, and accountable?</em> Responsible AI is how a demo becomes a product you're allowed to ship.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- DIMENSIONS -->
+  <section id="dimensions">
+    <div class="sec-head">
+      <span class="sec-num">02 / THE FRAMEWORK</span>
+      <h2>AWS names eight dimensions of responsible AI</h2>
+      <p>This is the vocabulary an AWS Gen AI developer is expected to speak. Each one is a question you must be able to answer about your system.</p>
+    </div>
+    <div class="dims">
+      <div class="dim" style="--c:var(--emerald)" tabindex="0">
+        <span class="dnum">DIM 01</span><span class="dic">⚖️</span>
+        <h3>Fairness</h3>
+        <p>Treat people equitably; avoid bias for or against groups.</p>
+        <span class="q">Can I show bias was measured — before and after training?</span>
+      </div>
+      <div class="dim" style="--c:var(--cyan)" tabindex="0">
+        <span class="dnum">DIM 02</span><span class="dic">🔍</span>
+        <h3>Explainability</h3>
+        <p>Understand and explain how a model reached its output.</p>
+        <span class="q">Can I explain why it answered that way — to a human?</span>
+      </div>
+      <div class="dim" style="--c:var(--violet)" tabindex="0">
+        <span class="dnum">DIM 03</span><span class="dic">🔐</span>
+        <h3>Privacy &amp; security</h3>
+        <p>Protect data, models, and users from exposure and attack.</p>
+        <span class="q">Is PII blocked, encrypted, and out of the training loop?</span>
+      </div>
+      <div class="dim" style="--c:var(--amber)" tabindex="0">
+        <span class="dnum">DIM 04</span><span class="dic">🦺</span>
+        <h3>Safety</h3>
+        <p>Prevent harmful, dangerous, or abusive outputs and misuse.</p>
+        <span class="q">What stops a user from getting something harmful?</span>
+      </div>
+      <div class="dim" style="--c:var(--rose)" tabindex="0">
+        <span class="dnum">DIM 05</span><span class="dic">🎛️</span>
+        <h3>Controllability</h3>
+        <p>Steer, constrain, and turn the system off when needed.</p>
+        <span class="q">Can I override, throttle, or kill it in seconds?</span>
+      </div>
+      <div class="dim" style="--c:var(--emerald)" tabindex="0">
+        <span class="dnum">DIM 06</span><span class="dic">🎯</span>
+        <h3>Veracity &amp; robustness</h3>
+        <p>Outputs are correct, reliable, and steady under change.</p>
+        <span class="q">Does it stay accurate when the world shifts?</span>
+      </div>
+      <div class="dim" style="--c:var(--cyan)" tabindex="0">
+        <span class="dnum">DIM 07</span><span class="dic">📋</span>
+        <h3>Governance</h3>
+        <p>Policies, ownership, review, and an audit trail over the lifecycle.</p>
+        <span class="q">Who owns this model, and can I prove what it did?</span>
+      </div>
+      <div class="dim" style="--c:var(--violet)" tabindex="0">
+        <span class="dnum">DIM 08</span><span class="dic">🔎</span>
+        <h3>Transparency</h3>
+        <p>Be open about how the system works, its limits, and its data.</p>
+        <span class="q">Would a customer understand what this can and can't do?</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- LIFECYCLE -->
+  <section id="lifecycle">
+    <div class="sec-head">
+      <span class="sec-num">03 / WHERE IT FITS</span>
+      <h2>Responsible AI is a lifecycle, not a single guardrail</h2>
+      <p>Controls live at five stages. Skip one and you've left a hole in the story.</p>
+    </div>
+    <div class="life">
+      <div class="stage">
+        <span class="st">STAGE 1</span>
+        <h4>Design &amp; data</h4>
+        <ul>
+          <li>Define intended use + limits</li>
+          <li>Screen data for bias &amp; PII</li>
+          <li>Document data provenance</li>
+        </ul>
+      </div>
+      <div class="stage">
+        <span class="st">STAGE 2</span>
+        <h4>Build &amp; select</h4>
+        <ul>
+          <li>Pick the right model</li>
+          <li>Evaluate for quality &amp; safety</li>
+          <li>Consider bias in fine-tuning</li>
+        </ul>
+      </div>
+      <div class="stage">
+        <span class="st">STAGE 3</span>
+        <h4>Guard</h4>
+        <ul>
+          <li>Filter inputs &amp; outputs</li>
+          <li>Deny risky topics</li>
+          <li>Redact PII, check grounding</li>
+        </ul>
+      </div>
+      <div class="stage">
+        <span class="st">STAGE 4</span>
+        <h4>Operate &amp; monitor</h4>
+        <ul>
+          <li>Watch drift &amp; quality</li>
+          <li>Log every action</li>
+          <li>Human review on edge cases</li>
+        </ul>
+      </div>
+      <div class="stage">
+        <span class="st">STAGE 5</span>
+        <h4>Govern</h4>
+        <ul>
+          <li>Model cards &amp; ownership</li>
+          <li>Periodic re-evaluation</li>
+          <li>Audit-ready evidence</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- ARCHITECTURE -->
+  <section id="architecture">
+    <div class="sec-head">
+      <span class="sec-num">04 / THE ARCHITECTURE</span>
+      <h2>Defense in depth: many small checks beat one big promise</h2>
+      <p>Picture a message travelling through your app. Every layer gets a chance to catch a problem before it reaches a human — or the next user.</p>
+    </div>
+    <div class="arch">
+      <div class="layer" style="--lc:var(--cyan)">
+        <span class="ltag">LAYER 1 · INPUT</span>
+        <p><b>Guard the prompt in.</b> Block denied topics, filter harmful categories, strip or mask PII, and defend against prompt-injection before the model ever sees it.</p>
+      </div>
+      <div class="arrowdown">↓</div>
+      <div class="layer" style="--lc:var(--emerald)">
+        <span class="ltag">LAYER 2 · RETRIEVE</span>
+        <p><b>Ground the answer.</b> Pull facts from your own knowledge base so the model answers from your sources instead of inventing them.</p>
+      </div>
+      <div class="arrowdown">↓</div>
+      <div class="layer" style="--lc:var(--violet)">
+        <span class="ltag">LAYER 3 · MODEL</span>
+        <p><b>Generate.</b> The foundation model on Amazon Bedrock produces a response — with access tightly scoped by IAM and data kept inside your account and Region.</p>
+      </div>
+      <div class="arrowdown">↓</div>
+      <div class="layer" style="--lc:var(--amber)">
+        <span class="ltag">LAYER 4 · OUTPUT</span>
+        <p><b>Check the answer out.</b> Filter the response, redact leaked PII, and run a contextual grounding check to catch hallucinations that wander from the source.</p>
+      </div>
+      <div class="arrowdown">↓</div>
+      <div class="layer" style="--lc:var(--rose)">
+        <span class="ltag">LAYER 5 · OPERATE</span>
+        <p><b>Watch and learn.</b> Monitor drift and quality, route low-confidence cases to human reviewers, and log everything for governance and audits.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- SERVICES -->
+  <section id="services">
+    <div class="sec-head">
+      <span class="sec-num">05 / THE TOOLKIT</span>
+      <h2>Which AWS service answers which dimension</h2>
+      <p>You rarely build these from scratch — AWS ships a mapped-out toolkit.</p>
+    </div>
+    <div class="tablewrap">
+      <table>
+        <thead>
+          <tr><th>Dimension</th><th>AWS service</th><th>What it gives you</th></tr>
+        </thead>
+        <tbody>
+          <tr><td class="d">Safety</td><td><span class="svc">Amazon Bedrock Guardrails</span></td><td>Content filters, denied topics, prompt-attack protection, and image filtering on inputs and outputs.</td></tr>
+          <tr><td class="d">Privacy &amp; security</td><td><span class="svc">Bedrock Guardrails · Macie · KMS</span></td><td>Detect and redact PII in prompts and responses; discover sensitive data at rest; encrypt with your own keys.</td></tr>
+          <tr><td class="d">Veracity &amp; robustness</td><td><span class="svc">Bedrock Guardrails + Model Evaluation</span></td><td>Contextual grounding checks catch hallucinations; automated evaluation scores quality, robustness, and toxicity.</td></tr>
+          <tr><td class="d">Fairness</td><td><span class="svc">Amazon SageMaker Clarify</span></td><td>Bias detection on data and models, plus feature-attribution explainability for predictions.</td></tr>
+          <tr><td class="d">Explainability</td><td><span class="svc">SageMaker Clarify</span></td><td>Understand which inputs drove an output — the "why" behind a prediction.</td></tr>
+          <tr><td class="d">Controllability</td><td><span class="svc">Guardrails thresholds · IAM · Config</span></td><td>Tune how strict the filters are, scope who can call what, and disable or roll back quickly.</td></tr>
+          <tr><td class="d">Governance</td><td><span class="svc">Model Cards · CloudTrail · Config</span></td><td>Document models, track who changed what, and keep an audit trail across the lifecycle.</td></tr>
+          <tr><td class="d">Transparency</td><td><span class="svc">AWS AI Service Cards</span></td><td>Published documents explaining intended use, limits, and design of AWS AI services.</td></tr>
+          <tr><td class="d">Human oversight</td><td><span class="svc">Amazon Augmented AI (A2I)</span></td><td>Route uncertain or high-stakes outputs to human reviewers inside your workflow.</td></tr>
+          <tr><td class="d">Operations</td><td><span class="svc">SageMaker Model Monitor</span></td><td>Detect data drift, quality drift, and bias drift on models running in production.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p style="color:var(--muted);font-size:.88rem;margin-top:12px;">Service capabilities and metric names change over time — treat this as the map, and check current AWS docs before you architect.</p>
+  </section>
+
+  <!-- USE CASES -->
+  <section id="usecases">
+    <div class="sec-head">
+      <span class="sec-num">06 / ON THE JOB</span>
+      <h2>What "responsible" looks like in real Gen AI builds</h2>
+    </div>
+    <div class="uses">
+      <div class="use">
+        <span class="u-ic">🏦</span>
+        <h4>Bank support chatbot</h4>
+        <p>Answers finance questions from approved docs, but never gives personalized investment advice.</p>
+        <div class="controls"><span class="chip">Denied topics</span><span class="chip">Grounding</span><span class="chip">PII redaction</span><span class="chip">Audit logs</span></div>
+      </div>
+      <div class="use">
+        <span class="u-ic">🏥</span>
+        <h4>Clinical note summarizer</h4>
+        <p>Summarizes records while keeping patient identifiers out and flagging uncertain summaries for staff.</p>
+        <div class="controls"><span class="chip">PII detect</span><span class="chip">Human review</span><span class="chip">Encryption</span></div>
+      </div>
+      <div class="use">
+        <span class="u-ic">🧑‍💼</span>
+        <h4>HR candidate screener</h4>
+        <p>Ranks applications but is checked for bias and documented so decisions can be explained.</p>
+        <div class="controls"><span class="chip">Bias detection</span><span class="chip">Explainability</span><span class="chip">Model card</span></div>
+      </div>
+      <div class="use">
+        <span class="u-ic">💻</span>
+        <h4>Coding assistant</h4>
+        <p>Generates code but filters secrets and unsafe patterns, and logs what it suggested.</p>
+        <div class="controls"><span class="chip">Content filters</span><span class="chip">Secrets scan</span><span class="chip">Version control</span></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- CERT -->
+  <section id="cert">
+    <div class="sec-head">
+      <span class="sec-num">07 / CERT &amp; CAREER</span>
+      <h2>Where this shows up in AWS certification — and in your job</h2>
+      <p>You don't need a separate AI-ethics badge. Responsible AI is already an exam domain and a hiring signal.</p>
+    </div>
+    <div class="cert-grid">
+      <div class="cert">
+        <span class="ex">AWS CERTIFIED AI PRACTITIONER · AIF-C01</span>
+        <h3>Domain 4: Guidelines for Responsible AI</h3>
+        <p>A dedicated domain covering the dimensions of responsible AI, governance, and the AWS features that support them.</p>
+        <div class="meter" role="img" aria-label="14 percent of scored content"><span style="width:14%"></span></div>
+        <div class="meter-label"><span>≈14% of scored content</span><span>valid 3 years</span></div>
+      </div>
+      <div class="cert">
+        <span class="ex">ML ENGINEER · MLA-C01 &amp; WELL-ARCHITECTED</span>
+        <h3>Data/model quality &amp; the Responsible AI Lens</h3>
+        <p>The ML Engineer – Associate exam leans on bias, explainability, and monitoring, and AWS publishes a <em>Responsible AI Lens</em> for the Well-Architected Framework to design against it.</p>
+        <div class="meter"><span style="width:100%;background:linear-gradient(90deg,var(--violet),var(--cyan))"></span></div>
+        <div class="meter-label"><span>Cross-cutting across ML &amp; Gen AI roles</span></div>
+      </div>
+    </div>
+    <div class="panel" style="margin-top:18px;">
+      <p style="color:var(--muted);font-size:.98rem;">🧑‍💻 <strong>Why employers care:</strong> a developer who can wire guardrails, run evaluations, document a model, and explain the trade-offs is far cheaper than the incident, the lawsuit, or the regulator's letter that follows an unguarded rollout.</p>
+    </div>
+  </section>
+
+  <!-- GOTCHAS -->
+  <section id="gotchas">
+    <div class="sec-head">
+      <span class="sec-num">08 / FINE PRINT</span>
+      <h2>The mistakes that quietly break the promise</h2>
+    </div>
+    <div class="flaws">
+      <div class="flaw"><span class="x">✕</span><div><b>"We added a guardrail, we're done."</b><p>One filter is one layer. Real safety is input + output + monitoring + human review + governance — defense in depth.</p></div></div>
+      <div class="flaw"><span class="x">✕</span><div><b>Metrics ≠ meaning.</b><p>A high evaluation score doesn't guarantee a fair, safe, or truthful system. Scores guide you; they don't absolve you.</p></div></div>
+      <div class="flaw"><span class="x">✕</span><div><b>Guardrails have a latency and cost.</b><p>Checks run per request and are billed — tune thresholds and scope them, or your "free" safety becomes an expensive bottleneck.</p></div></div>
+      <div class="flaw"><span class="x">✕</span><div><b>Governance without evidence is a story.</b><p>If you can't produce the logs, evaluation reports, and model cards, you can't prove responsibility after an incident.</p></div></div>
+      <div class="flaw"><span class="x">✕</span><div><b>Garbage in, biased out.</b><p>Responsibility starts at the data. Bias in your fine-tuning set becomes bias in production, no matter how good the model is.</p></div></div>
+      <div class="flaw"><span class="x">✕</span><div><b>It's a moving target.</b><p>Models, features, and regulations all change. Responsible AI is recurring review, not a one-time launch checklist.</p></div></div>
+    </div>
+  </section>
+
+  <!-- TLDR -->
+  <section id="tldr">
+    <div class="sec-head">
+      <span class="sec-num">09 / RECAP</span>
+      <h2>The whole thing in seven lines</h2>
+    </div>
+    <div class="panel">
+      <ul class="tldr">
+        <li>Responsible AI is the safety system around a model — not a feature inside it.</li>
+        <li>AWS frames it as eight dimensions: fairness, explainability, privacy &amp; security, safety, controllability, veracity &amp; robustness, governance, transparency.</li>
+        <li>Controls live across a lifecycle: design/data → build → guard → operate → govern.</li>
+        <li>Amazon Bedrock Guardrails does the heavy lifting for safety, PII, and hallucination checks.</li>
+        <li>SageMaker Clarify, Model Monitor, Model Cards, and A2I cover bias, drift, documentation, and human review.</li>
+        <li>It's a graded skill: AIF-C01 Domain 4 and the Well-Architected Responsible AI Lens.</li>
+        <li>Defense in depth + evidence beats any single big promise.</li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- SUMMARY -->
+  <section>
+    <div class="summary">
+      <h2>Remember it like this</h2>
+      <div class="big">
+        A powerful model <span class="a">isn't safe on its own</span>.<br>
+        Guardrails <span class="b">catch the harm</span>, monitoring <span class="c">catches the drift</span>,<br>
+        governance <span class="a">proves you watched</span>.
+      </div>
+      <p style="color:var(--muted);margin-top:18px;">That's responsible AI — and on AWS, most of it is a service you configure, not code you invent. 🛡️</p>
+    </div>
+  </section>
+
+  <footer>Made with 💛 by Buffy · <a href="https://aws.amazon.com/ai/responsible-ai/" target="_blank" rel="noopener">Responsible AI on AWS · aws.amazon.com</a></footer>
+</div>
+</body>
+</html>
