@@ -1,0 +1,427 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ELI5: Model Context Protocol (MCP) — the USB-C port for AI tools</title>
+<meta name="description" content="Model Context Protocol explained simply, for AWS Gen AI developers.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Nunito:wght@400;600;800&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --paper: #F4F7FB;
+    --ink: #182742;
+    --slate: #4A6FA5;
+    --aws: #FF9900;
+    --marker: #FFD447;
+    --white: #FFFFFF;
+    --line: #D8E0EC;
+    --good: #EAF7F0;
+    --goodLine: #4CBD84;
+    --bad: #FFF1E8;
+    --badLine: #F5A25D;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Nunito', 'Segoe UI', sans-serif;
+    background-color: var(--paper);
+    background-image: radial-gradient(circle, #D5DDE9 1px, transparent 1.5px);
+    background-size: 26px 26px;
+    color: var(--ink);
+    padding: 32px 16px 64px;
+    line-height: 1.6;
+  }
+  .page { max-width: 920px; margin: 0 auto; }
+
+  .eyebrow {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.78rem;
+    font-weight: 600;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--aws);
+    display: block;
+    margin-bottom: 10px;
+  }
+  h1, h2 { font-family: 'Space Grotesk', sans-serif; font-weight: 700; line-height: 1.15; }
+  h1 { font-size: clamp(2rem, 5.5vw, 3.4rem); }
+  h2 { font-size: clamp(1.45rem, 3.5vw, 2rem); margin-bottom: 14px; }
+  p { font-size: 1.12rem; margin-bottom: 12px; }
+  strong { font-weight: 800; }
+  em { font-style: normal; background: var(--marker); padding: 0 4px; }
+
+  code {
+    font-family: 'IBM Plex Mono', monospace;
+    background: #EDF1F8;
+    border: 1px solid var(--line);
+    padding: 2px 7px;
+    border-radius: 6px;
+    font-size: 0.9em;
+  }
+
+  /* ---------- Hero ---------- */
+  .hero { text-align: center; padding: 18px 0 8px; }
+  .hero-sub { font-size: 1.25rem; color: var(--slate); font-weight: 600; }
+  .hero-sub strong { color: var(--ink); }
+
+  .emblem {
+    margin: 34px auto 26px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: clamp(10px, 3vw, 22px);
+    flex-wrap: wrap;
+  }
+  .chip {
+    background: var(--white);
+    border: 2.5px solid var(--ink);
+    border-radius: 14px;
+    box-shadow: 5px 5px 0 rgba(24, 39, 66, 0.12);
+    padding: 14px 18px;
+    text-align: center;
+    min-width: 118px;
+  }
+  .chip .big { font-size: 2rem; display: block; line-height: 1; }
+  .chip .lbl {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.66rem;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--slate);
+    display: block;
+    margin-top: 6px;
+  }
+  .chip.port { background: var(--marker); border-style: dashed; transform: rotate(-3deg); }
+  .opsign { font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 2rem; color: var(--slate); }
+  .hat-badge {
+    font-family: 'Space Grotesk', sans-serif;
+    font-weight: 700;
+    font-size: 1.05rem;
+    background: var(--ink);
+    color: #fff;
+    padding: 12px 18px;
+    border-radius: 999px;
+  }
+
+  /* ---------- Cards / notebook ---------- */
+  .card {
+    background: var(--white);
+    border: 2px solid var(--ink);
+    border-radius: 14px;
+    box-shadow: 6px 6px 0 rgba(24, 39, 66, 0.1);
+    padding: clamp(22px, 4vw, 34px);
+    margin: 34px 0;
+    position: relative;
+  }
+  .tape {
+    position: absolute;
+    top: -13px;
+    left: 50%;
+    transform: translateX(-50%) rotate(-2deg);
+    width: 90px;
+    height: 26px;
+    background: rgba(255, 212, 71, 0.9);
+    border-left: 2px solid var(--ink);
+    border-right: 2px solid var(--ink);
+  }
+  .tape.orange { background: rgba(255, 153, 0, 0.55); }
+
+  /* ---------- Flow ---------- */
+  .flow { display: flex; flex-direction: column; gap: 10px; margin-top: 16px; }
+  .flow-step {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    background: #F8FAFD;
+    border: 2px solid var(--line);
+    border-left: 6px solid var(--aws);
+    border-radius: 12px;
+    padding: 14px 18px;
+    font-size: 1.06rem;
+  }
+  .num { font-family: 'IBM Plex Mono', monospace; font-weight: 600; color: var(--aws); min-width: 34px; }
+
+  /* ---------- Primitives ---------- */
+  .why-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 14px; margin-top: 18px; }
+  .why-item {
+    background: #F8FAFD;
+    border: 2px solid var(--line);
+    border-top: 5px solid var(--aws);
+    border-radius: 12px;
+    padding: 16px;
+    font-size: 0.98rem;
+  }
+  .why-item .icon { font-size: 1.9rem; display: block; margin-bottom: 8px; }
+  .why-item b { display: block; margin-bottom: 4px; font-size: 1.05rem; }
+
+  /* ---------- Compare ---------- */
+  .compare { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 18px; }
+  .cmp { border-radius: 12px; padding: 20px; font-size: 1.02rem; }
+  .cmp-title { font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 1.15rem; margin-bottom: 8px; display: block; }
+  .cmp.old { background: var(--bad); border: 2px solid var(--badLine); }
+  .cmp.new { background: var(--good); border: 2px solid var(--goodLine); }
+  .cmp ul { list-style: none; }
+  .cmp li { padding: 4px 0; }
+
+  /* ---------- Table ---------- */
+  .table-wrap { overflow-x: auto; margin-top: 18px; }
+  table { width: 100%; border-collapse: collapse; font-size: 1rem; min-width: 520px; }
+  th, td { text-align: left; padding: 12px 14px; border-bottom: 2px solid var(--line); vertical-align: top; }
+  thead th {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.72rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--slate);
+    border-bottom: 2.5px solid var(--ink);
+  }
+  tbody tr:last-child td { border-bottom: none; }
+  td:first-child { font-weight: 800; white-space: nowrap; }
+
+  /* ---------- AWS ---------- */
+  .aws-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 18px; }
+  .aws-card { background: #F8FAFD; border: 2px solid var(--line); border-radius: 12px; padding: 20px; }
+  .aws-card .svc {
+    font-family: 'IBM Plex Mono', monospace;
+    font-weight: 600;
+    font-size: 0.9rem;
+    color: var(--aws);
+    letter-spacing: 0.04em;
+    display: block;
+    margin-bottom: 8px;
+  }
+  .aws-card p { font-size: 1rem; margin-bottom: 0; }
+
+  /* ---------- Gotchas ---------- */
+  .gotchas { list-style: none; margin-top: 14px; }
+  .gotchas li {
+    background: #FFF8EC;
+    border: 2px solid var(--badLine);
+    border-radius: 12px;
+    padding: 14px 18px;
+    margin-bottom: 10px;
+    font-size: 1.02rem;
+  }
+
+  /* ---------- TL;DR ---------- */
+  .tldr { list-style: none; margin-top: 12px; }
+  .tldr li { padding: 8px 0 8px 34px; position: relative; font-size: 1.08rem; }
+  .tldr li::before {
+    content: "✔";
+    position: absolute;
+    left: 0;
+    top: 8px;
+    color: var(--goodLine);
+    font-weight: 800;
+  }
+
+  /* ---------- Summary ---------- */
+  .summary-card { text-align: center; }
+  .summary-line {
+    font-family: 'Space Grotesk', sans-serif;
+    font-weight: 700;
+    font-size: clamp(1.25rem, 3vw, 1.6rem);
+    line-height: 1.4;
+    margin: 10px 0;
+  }
+  .summary-line .plus { color: var(--slate); padding: 0 6px; }
+  .summary-line .equals { color: var(--aws); padding: 0 6px; }
+
+  footer {
+    text-align: center;
+    color: var(--slate);
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.8rem;
+    margin-top: 40px;
+  }
+  footer a { color: var(--slate); }
+
+  a:focus-visible { outline: 3px solid var(--aws); outline-offset: 2px; }
+  @media (max-width: 640px) {
+    .compare, .aws-grid { grid-template-columns: 1fr; }
+    .emblem { gap: 20px; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .chip.port { transform: none; }
+    * { scroll-behavior: auto; }
+  }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <!-- HERO -->
+  <header class="hero">
+    <span class="eyebrow">AWS Gen AI · Explained like you're 5</span>
+    <h1>Give your AI a <em>USB-C port</em><br>for tools.</h1>
+    <p class="hero-sub">That's what the <strong>Model Context Protocol</strong> is for.</p>
+
+    <div class="emblem" role="img" aria-label="An AI app plus an MCP plug equals many tools">
+      <div class="chip"><span class="big">🤖</span><span class="lbl">Your AI app</span></div>
+      <div class="opsign">+</div>
+      <div class="chip port"><span class="big">🔌</span><span class="lbl">MCP</span></div>
+      <div class="opsign">=</div>
+      <div class="chip"><span class="big">🧰</span><span class="lbl">Tools &amp; data</span></div>
+    </div>
+  </header>
+
+  <!-- THE IDEA -->
+  <section class="card">
+    <div class="tape"></div>
+    <span class="eyebrow">The idea</span>
+    <h2>A brilliant brain, locked in an empty room.</h2>
+    <p>A large language model has read the whole internet — but it is stuck in a room with no windows. It can't see your files, your database, or your company's APIs. It only knows what you hand it.</p>
+    <p>The old fix was to build a <strong>custom wire</strong> for every single thing you wanted to connect: one for your database, one for Slack, one for GitHub, one per model. Lots of glue code. Lots of upkeep.</p>
+    <p><strong>MCP</strong> (Model Context Protocol) replaces all those custom wires with <strong>one standard plug</strong>. Describe your tool once as an MCP server, and <em>any</em> AI app that speaks MCP can use it — no new glue code.</p>
+    <p style="margin-bottom:0;">🧸 <strong>In one breath:</strong> MCP is the USB-C of AI. One plug shape, and every tool in the room just works.</p>
+  </section>
+
+  <!-- WHY IT EXISTS -->
+  <section class="card">
+    <div class="tape orange"></div>
+    <span class="eyebrow">Why it exists</span>
+    <h2>The "too many wires" problem (M × N)</h2>
+    <p>Imagine 5 AI apps and 5 tools. If every app needed its own custom wire to every tool, that's <strong>5 × 5 = 25</strong> wires to build and keep alive. Add one tool and you rewire everything.</p>
+    <p>With MCP it's <strong>5 + 5 = 10</strong>: five clients, five servers. Each side speaks one shared language, so anything can talk to anything. That's why MCP is often compared to <strong>LSP</strong>, the protocol that let every code editor talk to every language the same way.</p>
+  </section>
+
+  <!-- HOW IT WORKS -->
+  <section class="card">
+    <div class="tape"></div>
+    <span class="eyebrow">How it works</span>
+    <h2>Two parts: a client and a server</h2>
+    <div class="flow">
+      <div class="flow-step"><span class="num">01</span> <strong>MCP client</strong> — the AI app: an agent on Amazon Bedrock, a coding assistant, or a chat app like Claude Desktop.</div>
+      <div class="flow-step"><span class="num">02</span> <strong>MCP server</strong> — a small program someone wrote that exposes one tool or data source in the standard way.</div>
+      <div class="flow-step"><span class="num">03</span> <strong>They connect</strong> — the client asks "what can you do?", the server lists its abilities, and the model calls them when needed.</div>
+      <div class="flow-step"><span class="num">04</span> <strong>Runs anywhere</strong> — servers can live on your laptop while you test, or run as hosted services across your AWS infrastructure.</div>
+    </div>
+
+    <p style="margin-top:22px;">Every server can offer three kinds of things:</p>
+    <div class="why-grid">
+      <div class="why-item"><span class="icon">🛠️</span><b>Tools</b>Actions the model can call — "look up this order", "send this message".</div>
+      <div class="why-item"><span class="icon">📄</span><b>Resources</b>Data placed into the model's context — a file, a database row, an image.</div>
+      <div class="why-item"><span class="icon">📝</span><b>Prompts</b>Reusable templates that show the model how to use a tool well.</div>
+    </div>
+  </section>
+
+  <!-- COMPARE -->
+  <section class="card">
+    <div class="tape orange"></div>
+    <span class="eyebrow">Why it wins</span>
+    <h2>Custom wires vs. one standard plug</h2>
+    <div class="compare">
+      <div class="cmp old">
+        <span class="cmp-title">😵 Before: bespoke connectors</span>
+        <ul>
+          <li>🚫 One custom integration per app × per tool</li>
+          <li>🧹 Glue code to write, host, and maintain forever</li>
+          <li>🧱 Everything is a silo behind its own private API</li>
+          <li>🐌 Every new tool means rework</li>
+        </ul>
+      </div>
+      <div class="cmp new">
+        <span class="cmp-title">✅ With MCP: one shared protocol</span>
+        <ul>
+          <li>🔌 Describe a tool once, reuse it everywhere</li>
+          <li>♻️ M×N becomes M+N — far fewer moving parts</li>
+          <li>🔒 Security lives in the standard + your IAM, not ad-hoc code</li>
+          <li>⚡ Swap in new tools and models without rewiring</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- TABLE -->
+  <section class="card">
+    <div class="tape"></div>
+    <span class="eyebrow">Side by side</span>
+    <h2>MCP at a glance</h2>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>Question</th><th>Short answer</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>What is it?</td><td>An open standard (created by Anthropic, released open source) for connecting AI apps to external tools and data.</td></tr>
+          <tr><td>What problem?</td><td>Stops you building a custom connector for every app-and-tool pair.</td></tr>
+          <tr><td>How is it shaped?</td><td>Client–server: the AI app is the client, each tool is a server. Servers expose tools, resources, and prompts.</td></tr>
+          <tr><td>Where does it run?</td><td>Locally on your machine for testing, or remotely as hosted services in the cloud.</td></tr>
+          <tr><td>Is it AWS-only?</td><td>No — it's vendor-neutral. AWS ships servers, hosting, and SDK support around it.</td></tr>
+          <tr><td>A service I buy?</td><td>No — it's a protocol. You (or a ready-made server) host the servers.</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ON AWS -->
+  <section class="card">
+    <div class="tape orange"></div>
+    <span class="eyebrow">On AWS</span>
+    <h2>Where you use MCP as an AWS Gen AI developer</h2>
+    <div class="aws-grid">
+      <div class="aws-card">
+        <span class="svc">🧰 AWS MCP Servers (awslabs/mcp)</span>
+        <p>An open-source suite of ready-made MCP servers from AWS — for official docs, cost, diagrams, databases, and more — so your coding assistant already knows AWS best practices.</p>
+      </div>
+      <div class="aws-card">
+        <span class="svc">🤖 Amazon Bedrock AgentCore</span>
+        <p>AgentCore <strong>Gateway</strong> turns your APIs and Lambdas into MCP tools agents can discover and call, and AgentCore <strong>Runtime</strong> hosts agents that speak MCP in production.</p>
+      </div>
+      <div class="aws-card">
+        <span class="svc">🧵 Strands Agents SDK</span>
+        <p>AWS's open-source agent SDK with MCP support built in — point an agent at an MCP server and its tools show up automatically.</p>
+      </div>
+      <div class="aws-card">
+        <span class="svc">🗣️ Amazon Q &amp; coding assistants</span>
+        <p>Coding assistants and chat apps act as MCP <em>clients</em> — connect an MCP server and they gain your tools inside the editor or chat.</p>
+      </div>
+    </div>
+    <p style="margin:16px 0 0; font-size:1rem;">🧸 <strong>Plain talk:</strong> on AWS you usually don't invent the protocol — you plug a ready-made AWS MCP server into your assistant, or wrap your own API as an MCP tool behind AgentCore Gateway.</p>
+  </section>
+
+  <!-- GOTCHAS -->
+  <section class="card">
+    <div class="tape"></div>
+    <span class="eyebrow">Fine print</span>
+    <h2>Gotchas worth knowing</h2>
+    <ul class="gotchas">
+      <li>⚠️ <strong>It's a standard, not a service.</strong> MCP won't run anything for you — someone still has to host each server, locally or in the cloud.</li>
+      <li>🔐 <strong>Servers are trust boundaries.</strong> A server can read data and take actions. Grant least-privilege credentials, review third-party servers, and never hardcode secrets.</li>
+      <li>🔀 <strong>Local vs remote matters.</strong> Local (on your machine) is easiest for testing; remote servers need real authentication and network hardening.</li>
+      <li>🚚 <strong>Transports have changed.</strong> Early setups leaned on SSE; newer guidance favors streamable HTTP. Check the current MCP spec before building.</li>
+      <li>⏳ <strong>The ecosystem moves fast.</strong> AWS has been folding its labs MCP servers into a broader "Agent Toolkit for AWS", so names and recommended paths can shift — verify against current docs.</li>
+      <li>🧠 <strong>Not magic memory.</strong> The model only gains what the connected servers expose — connect the right server, or it stays in the empty room.</li>
+    </ul>
+  </section>
+
+  <!-- TL;DR -->
+  <section class="card">
+    <div class="tape orange"></div>
+    <span class="eyebrow">TL;DR</span>
+    <h2>The whole thing in five lines</h2>
+    <ul class="tldr">
+      <li>MCP is an open standard that lets AI apps use external tools and data through one shared plug.</li>
+      <li>It's a client–server protocol: the AI app is the client, each tool is a server.</li>
+      <li>Servers offer three things: <strong>tools</strong> (do), <strong>resources</strong> (read), and <strong>prompts</strong> (templates).</li>
+      <li>It turns the messy M×N wiring problem into a tidy M+N.</li>
+      <li>On AWS, start with the AWS MCP servers, then wrap your own APIs as MCP tools via AgentCore Gateway.</li>
+    </ul>
+  </section>
+
+  <!-- SUMMARY -->
+  <section class="card summary-card">
+    <div class="tape"></div>
+    <span class="eyebrow">The whole story in one breath</span>
+    <div class="summary-line">One open plug<span class="plus">+</span>your tools as servers<span class="equals">=</span>an AI that can actually do things</div>
+    <p style="margin:6px 0 18px; color: var(--slate); font-size: 1.25rem; font-weight: 600;">
+      That's the <strong style="color:var(--ink);">Model Context Protocol</strong> — MCP! 🎉
+    </p>
+  </section>
+
+  <footer>Made with 💛 by Buffy · <a href="https://aws.amazon.com/blogs/machine-learning/unlocking-the-power-of-model-context-protocol-mcp-on-aws/" target="_blank" rel="noopener">MCP on AWS · aws.amazon.com</a></footer>
+</div>
+</body>
+</html>
