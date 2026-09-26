@@ -1,0 +1,408 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ELI5: LoRA — the tiny patch that teaches giant AI brains</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Nunito:wght@400;600;800&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --paper: #F4F7FB;
+    --ink: #182742;
+    --slate: #4A6FA5;
+    --aws: #FF9900;
+    --marker: #FFD447;
+    --white: #FFFFFF;
+    --line: #D8E0EC;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Nunito', 'Segoe UI', sans-serif;
+    background-color: var(--paper);
+    background-image: radial-gradient(circle, #D5DDE9 1px, transparent 1.5px);
+    background-size: 26px 26px;
+    color: var(--ink);
+    padding: 32px 16px 64px;
+    line-height: 1.6;
+  }
+  .page { max-width: 920px; margin: 0 auto; }
+  .eyebrow {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.78rem;
+    font-weight: 600;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--aws);
+    display: block;
+    margin-bottom: 10px;
+  }
+  h1, h2 { font-family: 'Space Grotesk', sans-serif; font-weight: 700; line-height: 1.15; }
+  h1 { font-size: clamp(2rem, 5.5vw, 3.4rem); }
+  h2 { font-size: clamp(1.45rem, 3.5vw, 2rem); margin-bottom: 14px; }
+  p { font-size: 1.12rem; margin-bottom: 12px; }
+  strong { font-weight: 800; }
+
+  /* ---------- Hero ---------- */
+  .hero { text-align: center; padding: 18px 0 8px; }
+  .hero-sub { font-size: 1.25rem; color: var(--slate); font-weight: 600; }
+
+  .emblem {
+    margin: 34px auto 26px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: clamp(10px, 3vw, 26px);
+    flex-wrap: wrap;
+  }
+  .brain {
+    width: clamp(150px, 34vw, 210px);
+    aspect-ratio: 1.15;
+    display: grid;
+    grid-template-columns: repeat(11, 1fr);
+    grid-template-rows: repeat(10, 1fr);
+    gap: 4px;
+    padding: 14px;
+    background: var(--white);
+    border: 2.5px solid var(--ink);
+    border-radius: 16px;
+    box-shadow: 7px 7px 0 rgba(24, 39, 66, 0.12);
+    position: relative;
+  }
+  .brain::after {
+    content: "FROZEN";
+    position: absolute;
+    bottom: -13px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--slate);
+    color: #fff;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.62rem;
+    letter-spacing: 0.14em;
+    padding: 4px 10px;
+    border-radius: 999px;
+    white-space: nowrap;
+  }
+  .dot {
+    background: var(--slate);
+    border-radius: 50%;
+    opacity: 0.85;
+  }
+  .dot.light { background: #AFC3E0; }
+  .opsign {
+    font-family: 'Space Grotesk', sans-serif;
+    font-weight: 700;
+    font-size: 2.2rem;
+    color: var(--slate);
+  }
+  .stickerCard {
+    width: clamp(140px, 30vw, 180px);
+    padding: 18px 14px;
+    background: var(--marker);
+    border: 2.5px dashed var(--ink);
+    border-radius: 10px;
+    transform: rotate(-4deg);
+    box-shadow: 5px 5px 0 rgba(255, 153, 0, 0.45);
+    text-align: center;
+    animation: settle 0.7s cubic-bezier(.2,.9,.3,1.4);
+  }
+  .stickerCard .delta {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 2.4rem;
+    font-weight: 700;
+    color: var(--aws);
+    line-height: 1;
+  }
+  .stickerCard .lora {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.8rem;
+    font-weight: 600;
+    letter-spacing: 0.22em;
+    color: var(--ink);
+  }
+  .stickerCard .tiny { font-size: 0.82rem; font-weight: 800; margin-top: 4px; }
+  @keyframes settle {
+    0% { transform: rotate(0deg) scale(0.92); opacity: 0; }
+    100% { transform: rotate(-4deg) scale(1); opacity: 1; }
+  }
+  .hat-badge {
+    font-family: 'Space Grotesk', sans-serif;
+    font-weight: 700;
+    font-size: 1.1rem;
+    background: var(--ink);
+    color: #fff;
+    padding: 12px 18px;
+    border-radius: 999px;
+  }
+
+  /* ---------- Cards / notebook ---------- */
+  .card {
+    background: var(--white);
+    border: 2px solid var(--ink);
+    border-radius: 14px;
+    box-shadow: 6px 6px 0 rgba(24, 39, 66, 0.1);
+    padding: clamp(22px, 4vw, 34px);
+    margin: 34px 0;
+    position: relative;
+  }
+  .tape {
+    position: absolute;
+    top: -13px;
+    left: 50%;
+    transform: translateX(-50%) rotate(-2deg);
+    width: 90px;
+    height: 26px;
+    background: rgba(255, 212, 71, 0.9);
+    border-left: 2px solid var(--ink);
+    border-right: 2px solid var(--ink);
+  }
+  .tape.orange { background: rgba(255, 153, 0, 0.55); }
+
+  code {
+    font-family: 'IBM Plex Mono', monospace;
+    background: #EDF1F8;
+    border: 1px solid var(--line);
+    padding: 2px 7px;
+    border-radius: 6px;
+    font-size: 0.95em;
+  }
+
+  /* ---------- Recipe flow (a real sequence -> numbers OK) ---------- */
+  .flow { display: flex; flex-direction: column; gap: 10px; margin-top: 16px; }
+  .flow-step {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    background: #F8FAFD;
+    border: 2px solid var(--line);
+    border-left: 6px solid var(--aws);
+    border-radius: 12px;
+    padding: 14px 18px;
+    font-size: 1.06rem;
+  }
+  .num {
+    font-family: 'IBM Plex Mono', monospace;
+    font-weight: 600;
+    color: var(--aws);
+    font-size: 1.05rem;
+    min-width: 34px;
+  }
+  .flow-arrow { text-align: center; font-size: 1.5rem; color: var(--slate); line-height: 1; }
+
+  /* ---------- Compare ---------- */
+  .compare { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 18px; }
+  .cmp {
+    border-radius: 12px;
+    padding: 20px;
+    font-size: 1.02rem;
+  }
+  .cmp-title { font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 1.15rem; margin-bottom: 8px; display: block; }
+  .cmp.old { background: #FFF1E8; border: 2px solid #F5A25D; }
+  .cmp.new { background: #EAF7F0; border: 2px solid #4CBD84; }
+  .cmp ul { list-style: none; }
+  .cmp li { padding: 4px 0; }
+
+  /* ---------- AWS ---------- */
+  .aws-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 18px; }
+  .aws-card {
+    background: #F8FAFD;
+    border: 2px solid var(--line);
+    border-radius: 12px;
+    padding: 20px;
+  }
+  .aws-card .svc {
+    font-family: 'IBM Plex Mono', monospace;
+    font-weight: 600;
+    font-size: 0.95rem;
+    color: var(--aws);
+    letter-spacing: 0.06em;
+    display: block;
+    margin-bottom: 8px;
+  }
+
+  /* ---------- Why ---------- */
+  .why-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 14px; margin-top: 18px; }
+  .why-item {
+    background: #F8FAFD;
+    border: 2px solid var(--line);
+    border-top: 5px solid var(--aws);
+    border-radius: 12px;
+    padding: 16px;
+    font-size: 0.98rem;
+  }
+  .why-item .icon { font-size: 1.9rem; display: block; margin-bottom: 8px; }
+  .why-item b { display: block; margin-bottom: 4px; font-size: 1.05rem; }
+
+  /* ---------- Summary ---------- */
+  .summary-card { text-align: center; }
+  .summary-line {
+    font-family: 'Space Grotesk', sans-serif;
+    font-weight: 700;
+    font-size: clamp(1.25rem, 3vw, 1.6rem);
+    line-height: 1.4;
+    margin: 10px 0;
+  }
+  .summary-line .plus { color: var(--slate); padding: 0 6px; }
+  .summary-line .equals { color: var(--aws); padding: 0 6px; }
+
+  footer {
+    text-align: center;
+    color: var(--slate);
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.8rem;
+    margin-top: 40px;
+  }
+  footer a { color: var(--slate); }
+
+  /* ---------- Quality floor ---------- */
+  a:focus-visible, button:focus-visible {
+    outline: 3px solid var(--aws);
+    outline-offset: 2px;
+  }
+  @media (max-width: 640px) {
+    .compare, .aws-grid { grid-template-columns: 1fr; }
+    .emblem { gap: 26px; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .stickerCard { animation: none; transform: rotate(-4deg); }
+    * { scroll-behavior: auto; }
+  }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <!-- HERO -->
+  <header class="hero">
+    <span class="eyebrow">AWS Gen AI · Explained like you're 5</span>
+    <h1>Teach a giant brain a new trick,<br>without rewriting the brain.</h1>
+    <p class="hero-sub">That's what <strong>LoRA</strong> is for.</p>
+
+    <div class="emblem" role="img" aria-label="A frozen giant brain plus a tiny LoRA patch equals a new skill">
+      <div class="brain">
+        <span class="dot"></span><span class="dot light"></span><span class="dot"></span><span class="dot light"></span><span class="dot"></span><span class="dot"></span><span class="dot light"></span><span class="dot"></span><span class="dot light"></span><span class="dot"></span><span class="dot"></span>
+        <span class="dot light"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="dot light"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="dot light"></span><span class="dot"></span>
+        <span class="dot"></span><span class="dot"></span><span class="dot light"></span><span class="dot"></span><span class="dot"></span><span class="dot light"></span><span class="dot"></span><span class="dot light"></span><span class="dot"></span><span class="dot"></span><span class="dot light"></span>
+        <span class="dot light"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="dot light"></span><span class="dot"></span><span class="dot"></span>
+        <span class="dot"></span><span class="dot light"></span><span class="dot"></span><span class="dot light"></span><span class="dot"></span><span class="dot light"></span><span class="dot"></span><span class="dot light"></span><span class="dot"></span><span class="dot light"></span><span class="dot"></span>
+        <span class="dot light"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="dot light"></span><span class="dot"></span><span class="dot"></span><span class="dot light"></span><span class="dot"></span><span class="dot"></span><span class="dot light"></span>
+        <span class="dot"></span><span class="dot light"></span><span class="dot"></span><span class="dot light"></span><span class="dot"></span><span class="dot"></span><span class="dot light"></span><span class="dot"></span><span class="dot"></span><span class="dot light"></span><span class="dot"></span>
+        <span class="dot light"></span><span class="dot"></span><span class="dot light"></span><span class="dot"></span><span class="dot"></span><span class="dot light"></span><span class="dot"></span><span class="dot"></span><span class="dot light"></span><span class="dot"></span><span class="dot"></span>
+        <span class="dot"></span><span class="dot light"></span><span class="dot"></span><span class="dot"></span><span class="dot light"></span><span class="dot"></span><span class="dot"></span><span class="dot light"></span><span class="dot"></span><span class="dot"></span><span class="dot light"></span>
+        <span class="dot light"></span><span class="dot"></span><span class="dot light"></span><span class="dot"></span><span class="dot"></span><span class="dot light"></span><span class="dot"></span><span class="dot"></span><span class="dot light"></span><span class="dot"></span><span class="dot"></span>
+      </div>
+      <div class="opsign">+</div>
+      <div class="stickerCard">
+        <span class="delta">Δ</span>
+        <span class="lora">LORA PATCH</span>
+        <span class="tiny">a pocket-sized note</span>
+      </div>
+      <div class="opsign">=</div>
+      <div class="hat-badge">🎩 New trick!</div>
+    </div>
+  </header>
+
+  <!-- THE IDEA -->
+  <section class="card">
+    <div class="tape"></div>
+    <span class="eyebrow">The idea</span>
+    <h2>A giant brain, frozen. A tiny notebook, new.</h2>
+    <p>Big AI models have already learned <strong>almost everything</strong> — language, pictures, math. They are giant brains that took months and huge computers to train.</p>
+    <p>Normally, teaching one a <em>new</em> skill meant changing <strong>everything inside it</strong>. Expensive, slow, and risky — like reprinting a million-page encyclopedia to fix one page.</p>
+    <p><strong>LoRA</strong> (Low-Rank Adaptation) does the opposite: it <strong>freezes the giant brain</strong> and trains only a <strong>tiny patch</strong> that the brain reads alongside its old knowledge. Your new skill goes on the patch — the encyclopedia never gets reprinted.</p>
+    <p style="margin-bottom:0;">🧸 <strong>In one breath:</strong> Keep the giant brain. Add a pocket notebook. The brain + notebook = your new skill.</p>
+  </section>
+
+  <!-- RECIPE -->
+  <section class="card">
+    <div class="tape orange"></div>
+    <span class="eyebrow">How it works</span>
+    <h2>The 5-step recipe</h2>
+    <div class="flow">
+      <div class="flow-step"><span class="num">01</span> <strong>Pick a giant model</strong> — like one you can call from AWS Bedrock or SageMaker.</div>
+      <div class="flow-arrow">⬇</div>
+      <div class="flow-step"><span class="num">02</span> <strong>Freeze it.</strong> All its old knowledge is locked and never touched.</div>
+      <div class="flow-arrow">⬇</div>
+      <div class="flow-step"><span class="num">03</span> <strong>Train a tiny patch</strong> on a small pile of your own examples (your notes, your rules, your style).</div>
+      <div class="flow-arrow">⬇</div>
+      <div class="flow-step"><span class="num">04</span> <strong>Slip the patch in.</strong> The model now reads your patch on top of its giant brain.</div>
+      <div class="flow-arrow">⬇</div>
+      <div class="flow-step"><span class="num">05</span> <strong>Done!</strong> You get a model with a new skill — and the patch is a tiny file you can save, copy, and share.</div>
+    </div>
+  </section>
+
+  <!-- COMPARE -->
+  <section class="card">
+    <div class="tape"></div>
+    <span class="eyebrow">Why LoRA wins</span>
+    <h2>Rewriting the brain vs. adding a sticky note</h2>
+    <div class="compare">
+      <div class="cmp old">
+        <span class="cmp-title">😵 Old way: full fine-tuning</span>
+        <ul>
+          <li>🚫 Touches the whole model — every number inside</li>
+          <li>💸 Needs huge computers and lots of money</li>
+          <li>📦 Saves a whole new copy of the giant brain</li>
+          <li>🧠 Risky — it can forget what it already knew</li>
+        </ul>
+      </div>
+      <div class="cmp new">
+        <span class="cmp-title">✅ LoRA: the sticky-note way</span>
+        <ul>
+          <li>🔒 The giant brain stays frozen and safe</li>
+          <li>📉 Trains a tiny patch — runs on a laptop-sized computer</li>
+          <li>💾 The patch is a tiny file — megabytes, not gigabytes</li>
+          <li>🎭 One brain, many patches — a new skill is a new, small file</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- AWS -->
+  <section class="card">
+    <div class="tape orange"></div>
+    <span class="eyebrow">On AWS</span>
+    <h2>Where you do this on AWS</h2>
+    <div class="aws-grid">
+      <div class="aws-card">
+        <span class="svc">☁️ Amazon Bedrock</span>
+        <p style="font-size:1rem; margin-bottom:0;">Picks a ready-to-use foundation model and fine-tunes it for you. LoRA is a key trick used under the hood to make fine-tuning fast and cheap — you stay on an API, no servers to manage.</p>
+      </div>
+      <div class="aws-card">
+        <span class="svc">🧵 Amazon SageMaker</span>
+        <p style="font-size:1rem; margin-bottom:0;">Gives you the whole workbench to fine-tune models yourself. LoRA is one of the most popular recipes here — train a tiny patch, keep the patch, and attach it to the big model whenever you need the skill.</p>
+      </div>
+    </div>
+    <p style="margin:16px 0 0; font-size:1rem;">🧸 <strong>Plain talk:</strong> on AWS you ask for a model, bring your examples, and AWS does the heavy lifting — LoRA is what makes that fast and affordable for you.</p>
+  </section>
+
+  <!-- WHY COOL -->
+  <section class="card">
+    <div class="tape"></div>
+    <span class="eyebrow">Why it's cool</span>
+    <h2>Four superpowers of the tiny patch</h2>
+    <div class="why-grid">
+      <div class="why-item"><span class="icon">💾</span><b>Tiny file</b>Small enough to email, save, or ship anywhere.</div>
+      <div class="why-item"><span class="icon">💰</span><b>Cheap to train</b>No giant supercomputers — a normal GPU does it.</div>
+      <div class="why-item"><span class="icon">🎭</span><b>One brain, many skills</b>Swap patches like hats: your patch, someone else's patch.</div>
+      <div class="why-item"><span class="icon">🧠</span><b>Old knowledge stays</b>The model never forgets what it already learned.</div>
+    </div>
+  </section>
+
+  <!-- SUMMARY -->
+  <section class="card summary-card">
+    <div class="tape orange"></div>
+    <span class="eyebrow">The whole story in one breath</span>
+    <div class="summary-line">Keep the giant brain<span class="plus">+</span>add a tiny patch<span class="equals">=</span>new skill</div>
+    <p style="margin:6px 0 18px; color: var(--slate); font-size: 1.25rem; font-weight: 600;">
+      That's <strong style="color:var(--ink);">Low-Rank Adaptation</strong> — LoRA! 🎉
+    </p>
+    <p style="margin-bottom:0; font-size: 1rem;">Want to try it on AWS? Ask Amazon Bedrock or SageMaker for <code>fine-tuning</code> — and mention LoRA.</p>
+  </section>
+
+  <footer>Made with 💛 by Buffy · <a href="https://aws.amazon.com/what-is/lora/" target="_blank" rel="noopener">What is LoRA? · aws.amazon.com</a></footer>
+</div>
+</body>
+</html>

@@ -1,0 +1,444 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🧸 ELI5: Chunking Strategies in AWS Gen AI</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500;600&family=Inter:wght@400;500;600;800&family=Playfair+Display:wght@700;900&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --paper: #F7F3EE;
+    --ink: #1F2328;
+    --accent: #C8553D;
+    --muted: #6b5d50;
+    --chalk: #FFFDF8;
+    --line: #D9CFC2;
+    --green: #3f6b4a;
+    --blue: #2f5b8a;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Inter', system-ui, sans-serif;
+    background-color: var(--paper);
+    color: var(--ink);
+    padding: 36px 18px 72px;
+    line-height: 1.6;
+  }
+  .page { max-width: 880px; margin: 0 auto; }
+
+  .eyebrow {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.78rem;
+    font-weight: 600;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--accent);
+    display: block;
+    margin-bottom: 8px;
+  }
+  h1, h2 { font-family: 'Playfair Display', serif; font-weight: 900; line-height: 1.1; }
+  h1 { font-size: clamp(2rem, 5.2vw, 3.2rem); }
+  h2 { font-size: clamp(1.4rem, 3vw, 1.85rem); margin-bottom: 10px; }
+  p { font-size: 1.08rem; margin-bottom: 10px; }
+  strong { font-weight: 700; }
+
+  /* ---------- Hero ---------- */
+  .hero { text-align: center; padding: 14px 0 4px; }
+  .hero-sub { font-size: 1.1rem; color: var(--muted); font-weight: 500; }
+
+  .puzzle {
+    margin: 28px auto 22px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: clamp(10px, 2.5vw, 20px);
+    flex-wrap: wrap;
+  }
+  .jigsaw {
+    width: clamp(160px, 34vw, 220px);
+    height: clamp(160px, 34vw, 220px);
+    background:
+      linear-gradient(45deg, transparent calc(50% - 6px), var(--ink) calc(50% - 6px), var(--ink) 50%, transparent 50%),
+      linear-gradient(-45deg, transparent calc(50% - 6px), var(--ink) calc(50% - 6px), var(--ink) 50%, transparent 50%);
+    background-size: 28px 28px;
+    background-position: 0 0, 0 0;
+    border: 3px solid var(--ink);
+    border-radius: 4px;
+    box-shadow: 8px 8px 0 rgba(31,35,40,0.12);
+    position: relative;
+    overflow: hidden;
+  }
+  .jigsaw::after {
+    content: "";
+    position: absolute;
+    inset: 8px;
+    border-radius: 2px;
+    background:
+      linear-gradient(45deg, transparent calc(16% - 3px), var(--accent) calc(16% - 3px), var(--accent) 16%, transparent 16%),
+      linear-gradient(45deg, transparent calc(32% - 3px), var(--accent) calc(32% - 3px), var(--accent) 32%, transparent 32%),
+      linear-gradient(45deg, transparent calc(48% - 3px), var(--accent) calc(48% - 3px), var(--accent) 48%, transparent 48%),
+      linear-gradient(45deg, transparent calc(64% - 3px), var(--accent) calc(64% - 3px), var(--accent) 64%, transparent 64%),
+      linear-gradient(45deg, transparent calc(80% - 3px), var(--accent) calc(80% - 3px), var(--accent) 80%, transparent 80%);
+    background-size: 28px 28px;
+    background-position: 0 0;
+  }
+  .plus, .equals {
+    font-family: 'Playfair Display', serif;
+    font-weight: 900;
+    font-size: 2.4rem;
+    color: var(--muted);
+  }
+  .chunks {
+    display: flex;
+    gap: 6px;
+    background: var(--chalk);
+    border: 3px solid var(--ink);
+    border-radius: 6px;
+    padding: 10px;
+    box-shadow: 7px 7px 0 rgba(31,35,40,0.12);
+  }
+  .chunk {
+    width: 28px; height: 28px;
+    background: var(--accent);
+    border: 2px solid var(--ink);
+    border-radius: 3px;
+    display: flex; align-items: center; justify-content: center;
+    color: #fff; font-family: 'IBM Plex Mono', monospace; font-size: 0.6rem; font-weight: 600;
+  }
+
+  /* ---------- Cards ---------- */
+  .card {
+    background: var(--chalk);
+    border: 2px solid var(--ink);
+    border-radius: 14px;
+    box-shadow: 7px 7px 0 rgba(31,35,40,0.1);
+    padding: clamp(22px, 3.5vw, 32px);
+    margin: 30px 0;
+  }
+  .tape {
+    position: absolute;
+    top: -12px; left: 50%;
+    transform: translateX(-50%) rotate(-2deg);
+    width: 84px; height: 24px;
+    background: rgba(200,85,61,0.85);
+    border-left: 2px solid var(--ink);
+    border-right: 2px solid var(--ink);
+    border-radius: 3px;
+  }
+  .card > .tape { position: absolute; }
+
+  /* ---------- Flow ---------- */
+  .flow {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-top: 16px;
+  }
+  .flow-step {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    background: #FBFAF6;
+    border: 2px solid var(--line);
+    border-left: 6px solid var(--accent);
+    border-radius: 10px;
+    padding: 12px 16px;
+    font-size: 1.04rem;
+  }
+  .num {
+    font-family: 'IBM Plex Mono', monospace;
+    font-weight: 600;
+    color: var(--accent);
+    font-size: 1rem;
+    min-width: 30px;
+  }
+  .flow-arrow { text-align: center; font-size: 1.4rem; color: var(--muted); line-height: 1; }
+
+  /* ---------- Strategies as cards ---------- */
+  .strategy-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 14px;
+    margin-top: 16px;
+  }
+  .strategy {
+    border-radius: 10px;
+    padding: 16px;
+    border: 2px solid var(--ink);
+    background: #FBFAF6;
+  }
+  .strategy .label {
+    font-family: 'IBM Plex Mono', monospace;
+    font-weight: 600;
+    font-size: 0.78rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--muted);
+    display: block;
+    margin-bottom: 6px;
+  }
+  .strategy h3 {
+    font-family: 'Playfair Display', serif;
+    font-weight: 900;
+    font-size: 1.12rem;
+    margin-bottom: 6px;
+  }
+  .strategy p { font-size: 0.95rem; margin-bottom: 0; }
+
+  /* ---------- Compare ---------- */
+  .compare { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 16px; }
+  .cmp {
+    border-radius: 10px;
+    padding: 18px;
+  }
+  .cmp-title { font-family: 'Playfair Display', serif; font-weight: 900; font-size: 1.05rem; margin-bottom: 8px; display: block; }
+  .cmp ul { list-style: none; }
+  .cmp li { padding: 3px 0; font-size: 0.94rem; }
+  .cmp.old { background: #FBEAE2; border: 2px solid #E7B5A0; }
+  .cmp.new { background: #EBF2EC; border: 2px solid #7fa28a; }
+
+  /* ---------- AWS ---------- */
+  .aws-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 14px; }
+  .aws-card {
+    background: #FBFAF6;
+    border: 2px solid var(--line);
+    border-radius: 10px;
+    padding: 18px;
+  }
+  .aws-card .svc {
+    font-family: 'IBM Plex Mono', monospace;
+    font-weight: 600;
+    font-size: 0.88rem;
+    color: var(--accent);
+    letter-spacing: 0.06em;
+    display: block;
+    margin-bottom: 6px;
+  }
+
+  /* ---------- Why ---------- */
+  .why-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; margin-top: 14px; }
+  .why-item {
+    background: #FBFAF6;
+    border: 2px solid var(--line);
+    border-top: 5px solid var(--accent);
+    border-radius: 10px;
+    padding: 14px;
+    font-size: 0.94rem;
+  }
+  .why-item b { display: block; margin-bottom: 3px; font-size: 1rem; }
+
+  /* ---------- Summary ---------- */
+  .summary-line {
+    font-family: 'Playfair Display', serif;
+    font-weight: 900;
+    font-size: clamp(1.2rem, 2.6vw, 1.5rem);
+    line-height: 1.4;
+    margin: 10px 0;
+  }
+  .summary-line .plus { color: var(--muted); padding: 0 6px; }
+  .summary-line .equals { color: var(--accent); padding: 0 6px; }
+
+  footer {
+    text-align: center;
+    color: var(--muted);
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.8rem;
+    margin-top: 36px;
+  }
+  footer a { color: var(--muted); }
+
+  a:focus-visible, button:focus-visible {
+    outline: 3px solid var(--accent);
+    outline-offset: 2px;
+  }
+  @media (max-width: 640px) {
+    .compare, .aws-grid { grid-template-columns: 1fr; }
+    .strategy-grid { grid-template-columns: 1fr; }
+    .puzzle { gap: 14px; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    * { scroll-behavior: auto; }
+  }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <!-- HERO -->
+  <header class="hero">
+    <span class="eyebrow">AWS Gen AI · Explained like you're 5</span>
+    <h1>How AWS Gen AI reads one giant page<br>one bite at a time.</h1>
+    <p class="hero-sub">That's what <strong>chunking</strong> is for.</p>
+
+    <div class="puzzle" role="img" aria-label="A giant document puzzle, broken into small chunk pieces">
+      <div class="jigsaw"></div>
+      <div class="plus">+</div>
+      <div class="chunks" aria-label="Chunk pieces: 1, 2, 3, 4, 5, 6">
+        <div class="chunk">1</div>
+        <div class="chunk">2</div>
+        <div class="chunk">3</div>
+        <div class="chunk">4</div>
+        <div class="chunk">5</div>
+        <div class="chunk">6</div>
+      </div>
+      <div class="equals">=</div>
+      <div style="font-family:'Playfair Display',serif; font-weight:900; font-size:1.4rem; color:var(--ink);">
+        Answers it actually finds.
+      </div>
+    </div>
+  </header>
+
+  <!-- THE IDEA -->
+  <section class="card">
+    <div class="tape"></div>
+    <span class="eyebrow">The idea</span>
+    <h2>A document is a giant puzzle. The AI has to look at it one piece at a time.</h2>
+    <p>Imagine you give a gen-AI model a <strong>huge document</strong> — a whole book, a long contract, or two hundred customer emails.</p>
+    <p>The model can't hold the whole thing at once. It has a <strong>size limit for each conversation</strong>, called a context window. So the job is to split that big thing into <strong>smaller pieces</strong> the model can actually use.</p>
+    <p>Those pieces are <strong>chunks</strong>. And <em>how</em> you split them — that's the <strong>chunking strategy</strong>.</p>
+    <p style="margin-bottom:0">🧸 <strong>In one breath:</strong> Cut the giant page into chunks. Feed the right chunks to the model. Get answers that actually make sense.</p>
+  </section>
+
+  <!-- WHY IT MATTERS -->
+  <section class="card">
+    <div class="tape"></div>
+    <span class="eyebrow">Why it matters</span>
+    <h2>Chunking decides what the model can remember.</h2>
+    <p>If chunks are <strong>too big</strong>, you overflow the model or bury the answer inside a wall of text.</p>
+    <p>If chunks are <strong>too small</strong>, the model loses the surrounding sentence, table, or paragraph — and starts guessing.</p>
+    <p>If chunks are <strong>in the wrong place</strong>, you can cut through the middle of an idea and the model gets confused.</p>
+    <p>That's why chunking isn't "just split by character count." It's one of the biggest choices you make when building a RAG app or a Bedrock knowledge base.</p>
+  </section>
+
+  <!-- HOW IT WORKS -->
+  <section class="card">
+    <div class="tape"></div>
+    <span class="eyebrow">How it works</span>
+    <h2>The bite-sized pipeline</h2>
+    <div class="flow">
+      <div class="flow-step"><span class="num">01</span> <strong>Bring in the document.</strong> PDFs, text files, logs, web pages, call transcripts — whatever your data is.</div>
+      <div class="flow-arrow">⬇</div>
+      <div class="flow-step"><span class="num">02</span> <strong>Split it into chunks</strong> using your chosen strategy — fixed size, sentences, paragraphs, or something smarter.</div>
+      <div class="flow-arrow">⬇</div>
+      <div class="flow-step"><span class="num">03</span> <strong>Turn each chunk into something the model can compare.</strong> Usually an embedding — a list of numbers that captures what the chunk is about. In AWS, this often happens in Amazon Bedrock or through Bedrock Data Automation.</div>
+      <div class="flow-arrow">⬇</div>
+      <div class="flow-step"><span class="num">04</span> <strong>Store the chunks and their numbers.</strong> In a knowledge base or vector store, so you can find the right pieces later.</div>
+      <div class="flow-arrow">⬇</div>
+      <div class="flow-step"><span class="num">05</span> <strong>Ask a question.</strong> Find the chunks that match, hand them to the model, and get your answer.</div>
+    </div>
+    <p style="margin-top:14px; font-size:1rem;">🧸 <strong>A kid-friendly version:</strong> Read the book → tear out bite-size pages → tag each page with what it's about → put them on labeled shelves → when a friend asks a question, grab the right pages and read them out loud.</p>
+  </section>
+
+  <!-- STRATEGIES -->
+  <section class="card">
+    <div class="tape"></div>
+    <span class="eyebrow">The choices</span>
+    <h2>Chunking strategies — how you decide where to cut.</h2>
+    <p>Every chunking strategy is a different answer to the same question: <em>where does one piece end and the next begin?</em></p>
+
+    <div class="strategy-grid">
+      <div class="strategy">
+        <span class="label">Fixed-size</span>
+        <h3>Cut by length.</h3>
+        <p>Split the text into chunks of a set number of characters or tokens, sometimes with overlap so nothing gets dropped at the seams.</p>
+      </div>
+      <div class="strategy">
+        <span class="label">Sentence / paragraph</span>
+        <h3>Cut by meaning boundaries.</h3>
+        <p>Keep sentences or paragraphs together so each chunk stays readable, instead of slicing words in half.</p>
+      </div>
+      <div class="strategy">
+        <span class="label">Semantic</span>
+        <h3>Cut by topic.</h3>
+        <p>Use the text itself — headings, breaks, or even embeddings — to find where one idea ends and another begins.</p>
+      </div>
+      <div class="strategy">
+        <span class="label">Parent-child / hierarchical</span>
+        <h3>Small chunks, big context.</h3>
+        <p>Keep a tiny chunk for precise search, but remember which bigger chunk it came from, so the model still gets the wider paragraph or page.</p>
+      </div>
+    </div>
+
+    <p style="margin-top:16px;">🧸 <strong>The main tradeoff:</strong> fixed-size is simple and predictable. Sentence/paragraph is cleaner to read. Semantic is smarter but more work. Parent-child gives you precision <em>and</em> context — usually the best of both worlds.</p>
+  </section>
+
+  <!-- COMPARE -->
+  <section class="card">
+    <div class="tape"></div>
+    <span class="eyebrow">Tradeoffs</span>
+    <h2>Too big vs. too small — the sweet spot in the middle.</h2>
+    <div class="compare">
+      <div class="cmp old">
+        <span class="cmp-title">😵 Too big</span>
+        <ul>
+          <li>The chunk overflows what the model can handle.</li>
+          <li>The real answer hides inside a pile of extra text.</li>
+          <li>Search gets sloppy because one chunk covers too much.</li>
+        </ul>
+      </div>
+      <div class="cmp new">
+        <span class="cmp-title">✅ A thoughtful chunk</span>
+        <ul>
+          <li>Fits the model's working memory.</li>
+          <li>Keeps the sentence, table, or idea intact.</li>
+          <li>Still carries enough context to make sense.</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- AWS -->
+  <section class="card">
+    <div class="tape"></div>
+    <span class="eyebrow">On AWS</span>
+    <h2>Where this lives in the AWS Gen AI world.</h2>
+    <div class="aws-grid">
+      <div class="aws-card">
+        <span class="svc">📚 Amazon Bedrock Knowledge Bases</span>
+        <p style="font-size:1rem; margin-bottom:0;">Manages document ingestion, chunking, and embeddings for RAG. You bring the data; Bedrock helps turn it into chunks the model can search through. Chunk size and strategy choices shape how well it finds the right answers.</p>
+      </div>
+      <div class="aws-card">
+        <span class="svc">🤖 Amazon Bedrock / Foundation Models</span>
+        <p style="font-size:1rem; margin-bottom:0;">The model itself has a context window — the amount it can handle in one turn. Chunking is how you fit your data into that window without losing the meaning your app actually needs.</p>
+      </div>
+      <div class="aws-card">
+        <span class="svc">🧹 Amazon Bedrock Data Automation</span>
+        <p style="font-size:1rem; margin-bottom:0;">A newer AWS service that can take messy files and produce structured, chunk-like outputs you can feed into a gen-AI workflow — useful when your data isn't clean text to begin with.</p>
+      </div>
+      <div class="aws-card">
+        <span class="svc">🧵 Amazon SageMaker</span>
+        <p style="font-size:1rem; margin-bottom:0;">When you need full control, you can build your own chunking pipeline here — custom split logic, custom embeddings, custom storage — instead of relying on a managed service.</p>
+      </div>
+    </div>
+    <p style="margin:14px 0 0; font-size:1rem;">🧸 <strong>Plain talk:</strong> on AWS, chunking is the bridge between your raw documents and the model. Pick a managed path for speed, or build your own for control.</p>
+  </section>
+
+  <!-- WHY COOL -->
+  <section class="card">
+    <div class="tape"></div>
+    <span class="eyebrow">Why it's cool</span>
+    <h2>Three reasons chunking makes Gen AI actually useful.</h2>
+    <div class="why-grid">
+      <div class="why-item"><b>🧩 It fits.</b><p style="margin-bottom:0;">Chunks let huge documents play nicely with models that can only hold a limited amount at a time.</p></div>
+      <div class="why-item"><b>🎯 It finds.</b><p style="margin-bottom:0;">Good chunks make search smarter — you grab the right piece, not the whole book.</p></div>
+      <div class="why-item"><b>🧠 It remembers context.</b><p style="margin-bottom:0;">Smart chunking — overlap, parent chunks, semantic breaks — keeps ideas whole so the model doesn't get confused.</p></div>
+    </div>
+  </section>
+
+  <!-- SUMMARY -->
+  <section class="card" style="text-align:center;">
+    <div class="tape"></div>
+    <span class="eyebrow">The whole story in one breath</span>
+    <div class="summary-line">Giant document<span class="plus">+</span>chunking strategy<span class="equals">=</span>model-ready pieces</div>
+    <p style="margin:6px 0 18px; color: var(--muted); font-size: 1.15rem; font-weight: 600;">
+      That's <strong style="color:var(--ink);">chunking for AWS Gen AI</strong>. 🎉
+    </p>
+    <p style="margin-bottom:0; font-size: 1rem;">Want it for real? Start with Amazon Bedrock Knowledge Bases, pick a chunk size and strategy that matches your documents, and let the managed pipeline do the splitting — or build it yourself in SageMaker when you need the extra control.</p>
+  </section>
+
+  <footer>Made with 💛 by Buffy · <a href="https://aws.amazon.com/bedrock/" target="_blank" rel="noopener">AWS Bedrock</a> · <a href="https://aws.amazon.com/bedrock/data-automation/" target="_blank" rel="noopener">Bedrock Data Automation</a></footer>
+</div>
+</body>
+</html>

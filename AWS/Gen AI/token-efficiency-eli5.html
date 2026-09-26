@@ -1,0 +1,772 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ELI5: Token Efficiency in AWS Gen AI</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@600;700;800;900&family=Work+Sans:wght@400;500;600&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --white:  #FFFFFF;
+    --panel:  #F1F1EC;
+    --ink:    #101418;
+    --muted:  #6E7480;
+    --rule:   #101418;
+    --lime:   #C6F135;
+    --lime-d: #9FC41B;
+    --waste:  #FF5A1F;
+    --line:   #D6D6CF;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Work Sans', system-ui, sans-serif;
+    color: var(--ink);
+    line-height: 1.6;
+    background-color: var(--white);
+    background-image: radial-gradient(circle, rgba(16,20,24,0.13) 1px, transparent 1px);
+    background-size: 22px 22px;
+    padding: 40px 16px 84px;
+    -webkit-font-smoothing: antialiased;
+  }
+  .page { max-width: 900px; margin: 0 auto; }
+
+  /* ---------- type ---------- */
+  h1, h2, h3 { font-family: 'Archivo', sans-serif; font-weight: 800; letter-spacing: -0.03em; line-height: 1.05; }
+  h1 { font-size: clamp(2.2rem, 6vw, 3.7rem); font-weight: 900; text-transform: uppercase; }
+  h2 { font-size: clamp(1.4rem, 3.3vw, 2rem); margin-bottom: 12px; }
+  h3 { font-size: 1.06rem; letter-spacing: -0.01em; line-height: 1.25; }
+  p { font-size: 1.07rem; color: var(--muted); margin-bottom: 11px; }
+  p strong, li strong { color: var(--ink); font-weight: 600; }
+  code {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.84em;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 2px;
+    padding: 1px 5px;
+    color: var(--ink);
+    white-space: nowrap;
+  }
+  .mono { font-family: 'Space Mono', monospace; }
+  .num { font-family: 'Space Mono', monospace; font-variant-numeric: tabular-nums; }
+
+  .eyebrow {
+    display: inline-block;
+    font-family: 'Space Mono', monospace;
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    background: var(--ink);
+    color: var(--lime);
+    padding: 5px 10px;
+    margin-bottom: 14px;
+  }
+
+  /* ---------- hazard divider ---------- */
+  .hazard {
+    height: 12px;
+    margin: 34px 0 0;
+    background: repeating-linear-gradient(45deg, var(--ink) 0 12px, var(--lime) 12px 24px);
+    border-top: 3px solid var(--ink);
+    border-bottom: 3px solid var(--ink);
+  }
+
+  /* ---------- hero ---------- */
+  .hero { padding: 8px 0 0; }
+  .hero h1 em { font-style: normal; background: var(--lime); padding: 0 8px; box-decoration-break: clone; -webkit-box-decoration-break: clone; }
+  .hero-sub { font-size: 1.16rem; color: var(--ink); max-width: 660px; margin-top: 18px; }
+  .hero-sub b { background: var(--lime); padding: 0 4px; }
+
+  /* hero meter strip */
+  .meter-strip {
+    margin-top: 30px;
+    border: 3px solid var(--ink);
+    background: var(--panel);
+    padding: 16px 18px 20px;
+    position: relative;
+  }
+  .meter-strip .cap {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.68rem;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--muted);
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 10px;
+  }
+  .meter-track { height: 34px; display: flex; border: 2px solid var(--ink); background: var(--white); }
+  .meter-track span {
+    height: 100%;
+    display: grid;
+    place-items: center;
+    font-family: 'Space Mono', monospace;
+    font-size: 0.66rem;
+    font-weight: 700;
+    color: var(--ink);
+    border-right: 2px solid var(--ink);
+    overflow: hidden;
+    white-space: nowrap;
+  }
+  .meter-track span:last-child { border-right: none; }
+  .seg-sys  { flex: 22; background: var(--lime); }
+  .seg-doc  { flex: 64; background: var(--lime-d); }
+  .seg-hist { flex: 12; background: #E4E4DA; }
+  .seg-out  { flex: 6;  background: var(--waste); color: var(--white) !important; }
+  .meter-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 18px;
+    margin-top: 12px;
+    font-family: 'Space Mono', monospace;
+    font-size: 0.7rem;
+    color: var(--muted);
+  }
+  .meter-legend b { color: var(--ink); }
+  .meter-legend i {
+    display: inline-block;
+    width: 10px; height: 10px;
+    border: 2px solid var(--ink);
+    margin-right: 6px;
+    vertical-align: -1px;
+  }
+
+  /* ---------- card ---------- */
+  .card {
+    background: var(--white);
+    border: 3px solid var(--ink);
+    padding: clamp(22px, 4vw, 36px);
+    margin: 30px 0;
+    position: relative;
+  }
+  .card .index {
+    position: absolute;
+    top: -3px; right: -3px;
+    background: var(--ink);
+    color: var(--lime);
+    font-family: 'Space Mono', monospace;
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    padding: 6px 11px;
+  }
+
+  /* ---------- compare ---------- */
+  .compare {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    border: 3px solid var(--ink);
+    margin-top: 16px;
+  }
+  .compare > div { padding: 18px 20px; }
+  .compare > div:first-child { border-right: 3px solid var(--ink); background: var(--panel); }
+  .compare h3 { font-size: 1rem; margin-bottom: 6px; }
+  .compare p { font-size: 0.98rem; margin-bottom: 0; }
+  .tagline {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.66rem;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--muted);
+    display: block;
+    margin-bottom: 7px;
+  }
+
+  /* ---------- signature: the bill ---------- */
+  .bill {
+    border: 3px solid var(--ink);
+    background: var(--white);
+    margin-top: 18px;
+  }
+  .bill-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+    flex-wrap: wrap;
+    padding: 14px 18px;
+    background: var(--ink);
+    color: var(--white);
+  }
+  .bill-head .t {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.72rem;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--lime);
+  }
+  .switch { display: flex; align-items: center; gap: 10px; cursor: pointer; user-select: none; }
+  .switch .lbl {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.72rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--white);
+  }
+  .switch input { position: absolute; opacity: 0; width: 0; height: 0; }
+  .switch .rail {
+    width: 46px; height: 24px;
+    background: #3A4048;
+    border: 2px solid var(--white);
+    position: relative;
+    transition: background 0.2s ease;
+  }
+  .switch .knob {
+    position: absolute;
+    top: 1px; left: 1px;
+    width: 18px; height: 16px;
+    background: var(--white);
+    transition: transform 0.22s cubic-bezier(.3,.9,.3,1);
+  }
+  .switch input:checked + .rail { background: var(--lime-d); }
+  .switch input:checked + .rail .knob { transform: translateX(22px); background: var(--ink); }
+  .switch input:focus-visible + .rail { outline: 3px solid var(--lime); outline-offset: 2px; }
+
+  .bill-body { padding: 6px 0; }
+  .bill-row {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 8px 14px;
+    align-items: center;
+    padding: 12px 18px;
+    border-bottom: 1px dashed var(--line);
+    transition: background 0.3s ease;
+  }
+  .bill-row:last-child { border-bottom: none; }
+  .bill-row .rlabel { font-size: 0.99rem; color: var(--ink); font-weight: 500; }
+  .bill-row .rsub {
+    display: block;
+    font-family: 'Space Mono', monospace;
+    font-size: 0.66rem;
+    letter-spacing: 0.04em;
+    color: var(--muted);
+    margin-top: 2px;
+  }
+  .bill-row .rtok { font-family: 'Space Mono', monospace; font-size: 0.84rem; color: var(--ink); text-align: right; }
+  .bill-row .rrate {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.66rem;
+    color: var(--muted);
+    text-align: right;
+    display: block;
+    margin-top: 2px;
+  }
+  .bill-row .rrate.cached { color: var(--lime-d); font-weight: 700; }
+  .bill-row.is-out .rtok { color: var(--waste); }
+
+  .bill-row.live { background: rgba(198,241,53,0.16); }
+
+  .bill-foot {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    align-items: end;
+    gap: 16px;
+    padding: 18px;
+    border-top: 3px solid var(--ink);
+    background: var(--panel);
+  }
+  .bill-foot .flabel {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.68rem;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+  .bill-foot .fbig {
+    font-family: 'Archivo', sans-serif;
+    font-weight: 900;
+    font-size: clamp(2rem, 6vw, 2.9rem);
+    letter-spacing: -0.04em;
+    line-height: 1;
+    margin-top: 6px;
+    font-variant-numeric: tabular-nums;
+  }
+  .bill-foot .fnote { font-family: 'Space Mono', monospace; font-size: 0.68rem; color: var(--muted); margin-top: 6px; }
+  .savings {
+    text-align: right;
+    font-family: 'Space Mono', monospace;
+    font-size: 0.76rem;
+    color: var(--muted);
+    line-height: 1.5;
+  }
+  .savings .big { display: block; font-family: 'Archivo', sans-serif; font-weight: 900; font-size: 1.6rem; color: var(--lime-d); letter-spacing: -0.03em; }
+  .savings .big.zero { color: var(--muted); opacity: 0.5; }
+
+  .costbar { height: 16px; border: 2px solid var(--ink); background: var(--white); margin-top: 12px; display: flex; }
+  .costbar span { height: 100%; background: var(--lime); transition: width 0.55s cubic-bezier(.2,.9,.3,1); }
+  .costbar .out { background: var(--waste); }
+
+  /* ---------- levers ---------- */
+  .levers { display: grid; grid-template-columns: repeat(auto-fit, minmax(232px, 1fr)); gap: 14px; margin-top: 18px; }
+  .lever {
+    border: 3px solid var(--ink);
+    background: var(--white);
+    padding: 16px 17px 18px;
+    position: relative;
+  }
+  .lever .lno {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    color: var(--white);
+    background: var(--ink);
+    display: inline-block;
+    padding: 3px 7px;
+    margin-bottom: 10px;
+  }
+  .lever.hot .lno { background: var(--waste); }
+  .lever h3 { margin-bottom: 6px; }
+  .lever p { font-size: 0.97rem; margin-bottom: 0; }
+  .lever .save {
+    display: inline-block;
+    margin-top: 10px;
+    font-family: 'Space Mono', monospace;
+    font-size: 0.68rem;
+    font-weight: 700;
+    background: var(--lime);
+    border: 2px solid var(--ink);
+    padding: 3px 8px;
+  }
+
+  /* ---------- notes list ---------- */
+  .notes { list-style: none; display: grid; gap: 12px; margin-top: 6px; }
+  .notes li {
+    border-left: 6px solid var(--ink);
+    background: var(--panel);
+    padding: 12px 16px;
+    font-size: 1rem;
+    color: var(--muted);
+  }
+  .notes li.warn { border-left-color: var(--waste); }
+  .notes li b { color: var(--ink); }
+
+  .callout {
+    border: 3px solid var(--ink);
+    background: var(--lime);
+    padding: 14px 18px;
+    margin-top: 18px;
+    font-size: 1rem;
+    font-weight: 500;
+    color: var(--ink);
+  }
+  .callout b { font-weight: 700; }
+
+  /* ---------- AWS svc ---------- */
+  .svc { border: 3px solid var(--ink); background: var(--white); padding: 16px 18px; margin-top: 12px; }
+  .svc .name {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.8rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    display: block;
+    margin-bottom: 8px;
+    border-bottom: 2px solid var(--ink);
+    padding-bottom: 7px;
+  }
+  .svc p { font-size: 0.99rem; margin-bottom: 0; }
+  .svc p + p { margin-top: 8px; }
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+  .chips span {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.7rem;
+    border: 2px solid var(--ink);
+    padding: 4px 9px;
+    background: var(--panel);
+  }
+  .chips span b { color: var(--ink); }
+
+  /* ---------- summary ---------- */
+  .summary { text-align: center; }
+  .seq {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    margin: 20px 0 8px;
+  }
+  .seq .st {
+    font-family: 'Archivo', sans-serif;
+    font-weight: 800;
+    font-size: clamp(1.05rem, 2.6vw, 1.5rem);
+    border: 3px solid var(--ink);
+    padding: 8px 16px;
+    letter-spacing: -0.02em;
+  }
+  .seq .st.a { background: var(--panel); }
+  .seq .st.b { background: var(--lime); }
+  .seq .st.c { background: var(--ink); color: var(--lime); }
+  .seq .ar { font-family: 'Archivo', sans-serif; font-weight: 900; font-size: 1.5rem; }
+
+  footer {
+    text-align: center;
+    font-family: 'Space Mono', monospace;
+    font-size: 0.72rem;
+    color: var(--muted);
+    margin-top: 44px;
+    line-height: 1.9;
+  }
+  footer a { color: var(--ink); text-decoration: none; border-bottom: 2px solid var(--lime); }
+
+  a:focus-visible, button:focus-visible { outline: 3px solid var(--waste); outline-offset: 2px; }
+
+  @media (max-width: 620px) {
+    .compare { grid-template-columns: 1fr; }
+    .compare > div:first-child { border-right: none; border-bottom: 3px solid var(--ink); }
+    .bill-foot { grid-template-columns: 1fr; }
+    .savings { text-align: left; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .bill-row, .costbar span, .switch .knob { transition: none; }
+  }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <!-- HERO -->
+  <header class="hero">
+    <span class="eyebrow">AWS Gen AI · Explained like you're 5</span>
+    <h1>Every word you send the model runs the <em>meter</em> again.</h1>
+    <p class="hero-sub">Token efficiency is just <b>not paying for the same words twice</b>. On AWS, most of the savings comes from one trick: stop re-reading the boring part.</p>
+
+    <div class="meter-strip">
+      <div class="cap">
+        <span>What you send on one RAG call</span>
+        <span class="num">≈ 11,000 tokens in · 600 out</span>
+      </div>
+      <div class="meter-track" role="img" aria-label="Typical prompt tokens: system prompt 22%, retrieved documents 64%, history 12%, model output 6%">
+        <span class="seg-sys">SYS 22%</span>
+        <span class="seg-doc">DOCS 64%</span>
+        <span class="seg-hist">HIST</span>
+        <span class="seg-out">OUT</span>
+      </div>
+      <div class="meter-legend">
+        <span><i class="seg-sys"></i><b>System prompt + tools</b></span>
+        <span><i class="seg-doc"></i><b>Retrieved context</b></span>
+        <span><i class="seg-hist"></i><b>History</b></span>
+        <span><i class="seg-out"></i><b>Answer</b></span>
+      </div>
+    </div>
+  </header>
+
+  <!-- TOKENS & MONEY -->
+  <section class="card">
+    <span class="index">01 / THE BASICS</span>
+    <span class="eyebrow">First, tokens</span>
+    <h2>A token is a word-chunk. Tokens are the unit you're billed in.</h2>
+    <p>The model doesn't read letters or whole words — it reads <strong>tokens</strong>, which are little chunks of text (roughly ¾ of a word in English). "Hamburger" might be 2 tokens; "cat" is 1.</p>
+    <p style="margin-bottom:0;">You pay <strong>per token</strong>, and — this is the part people miss — you pay in <em>both directions</em>:</p>
+    <div class="compare">
+      <div>
+        <span class="tagline">Tokens you send → input</span>
+        <h3>Cheaper per token</h3>
+        <p>Your system prompt, retrieved documents, history, and the question. This is where prompt caching helps.</p>
+      </div>
+      <div>
+        <span class="tagline">Tokens the model writes → output</span>
+        <h3>Pricier per token</h3>
+        <p>The answer itself. Usually around 3–5× the input rate, so a chatty model can cost more than a fat prompt.</p>
+      </div>
+    </div>
+    <div class="callout">🧸 <b>Kid version:</b> every time you talk to the model, the meter starts running — and it charges for what you say <em>and</em> what it says back.</div>
+  </section>
+
+  <div class="hazard" aria-hidden="true"></div>
+
+  <!-- THE WASTE -->
+  <section class="card">
+    <span class="index">02 / THE WASTE</span>
+    <span class="eyebrow">Why it adds up so fast</span>
+    <h2>In a chatbot, you resend the same huge prefix on every single turn.</h2>
+    <p>Models are stateless. They don't remember your last call — so <strong>you send everything again</strong> each time: the system prompt, the tool definitions, the retrieved document, the whole running conversation.</p>
+    <p>On a RAG app, that prefix is most of the payload. And the user only changed one line of it — their new question.</p>
+    <p style="margin-bottom:0;">Ask the same document 20 questions, and without caching, you pay to have the model read that document <strong>20 times</strong>. Same words. Same cost. Every turn.</p>
+    <div class="callout">🔥 <b>That's the waste.</b> The model re-chews a prefix it already understood. Token efficiency is mostly about making it chew once.</div>
+  </section>
+
+  <!-- SIGNATURE: THE BILL -->
+  <section class="card">
+    <span class="index">03 / THE FIX</span>
+    <span class="eyebrow">Prompt caching · see it</span>
+    <h2>Flip the switch. Watch the cost fall, not the tokens.</h2>
+    <p>Prompt caching tells Bedrock: "this chunk of my prompt never changes — keep it warm." Next call, the model <strong>reads it from cache instead of recomputing it</strong>, and you're billed at the reduced cache-read rate.</p>
+
+    <div class="bill">
+      <div class="bill-head">
+        <span class="t">Cost per call · illustrative rates</span>
+        <label class="switch">
+          <input type="checkbox" id="cacheToggle">
+          <span class="rail"><span class="knob"></span></span>
+          <span class="lbl" id="cacheLbl">Prompt caching off</span>
+        </label>
+      </div>
+
+      <div class="bill-body" id="billBody"></div>
+
+      <div class="bill-foot">
+        <div>
+          <span class="flabel">Total per call</span>
+          <div class="fbig" id="total">$0.0408</div>
+          <div class="fnote" id="totalNote">input $3.00 / M tokens · output $15.00 / M tokens</div>
+          <div class="costbar" id="costbar" role="img" aria-label="Cost breakdown bar"><span id="barIn"></span><span class="out" id="barOut"></span></div>
+        </div>
+        <div class="savings">
+          Per 10,000 calls<br>
+          <span class="big zero" id="saveBig">—</span>
+          <span id="saveTxt">flip the switch to compare</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="callout" style="margin-top:18px;">🧸 <b>Notice what did NOT change:</b> the token counts. Caching doesn't make your prompt smaller — it makes the <em>price</em> of the repeated part smaller. And the answer the model gives is identical.</div>
+  </section>
+
+  <div class="hazard" aria-hidden="true"></div>
+
+  <!-- THE LEVERS -->
+  <section class="card">
+    <span class="index">04 / THE LEVERS</span>
+    <span class="eyebrow">Every dial you can turn</span>
+    <h2>Six ways to run a cheaper meter.</h2>
+    <div class="levers">
+      <div class="lever">
+        <span class="lno">LEVER 01</span>
+        <h3>Cache the repeated prefix</h3>
+        <p>Keep static content at the <em>start</em> of the prompt and dynamic content at the <em>end</em>. That way the stable prefix stays cacheable across calls.</p>
+        <span class="save">up to ~90% off input</span>
+      </div>
+      <div class="lever">
+        <span class="lno">LEVER 02</span>
+        <h3>Cap the answer length</h3>
+        <p>Set a max output length and ask for concise answers. Output tokens are the expensive ones, so a rambling model quietly costs more than a big prompt.</p>
+        <span class="save">output is the pricey part</span>
+      </div>
+      <div class="lever hot">
+        <span class="lno">LEVER 03</span>
+        <h3>Send fewer, better chunks</h3>
+        <p>Retrieved context is the biggest slice of a RAG prompt. A reranker lets you keep 3–5 great chunks instead of 20 mediocre ones.</p>
+        <span class="save">shrinks input a lot</span>
+      </div>
+      <div class="lever">
+        <span class="lno">LEVER 04</span>
+        <h3>Right-size the model</h3>
+        <p>Not every request needs the biggest model. Route simple prompts to a smaller, cheaper sibling and save the big one for hard asks.</p>
+        <span class="save">match cost to difficulty</span>
+      </div>
+      <div class="lever">
+        <span class="lno">LEVER 05</span>
+        <h3>Trim or summarize the history</h3>
+        <p>A long chat re-sends its whole story every turn. Keep the last few turns and summarize the rest instead of carrying it all.</p>
+        <span class="save">stops history bloat</span>
+      </div>
+      <div class="lever">
+        <span class="lno">LEVER 06</span>
+        <h3>Batch the non-urgent work</h3>
+        <p>Independent, offline jobs (bulk tagging, backfills) can run as a batch at a large discount instead of on-demand. No one's waiting.</p>
+        <span class="save">big flat discount</span>
+      </div>
+    </div>
+    <p style="margin-top:18px; margin-bottom:0; font-size:1rem;">🧸 <b>Priority order:</b> cache the prefix first (easy, huge), then trim what you retrieve, then cap the answer. Those three get you most of the way.</p>
+  </section>
+
+  <!-- ON AWS -->
+  <section class="card">
+    <span class="index">05 / ON AWS</span>
+    <span class="eyebrow">Where this lives in AWS</span>
+    <h2>Prompt caching in Amazon Bedrock — two flavours.</h2>
+
+    <div class="svc">
+      <span class="name">⚙️ Implicit Prompt Caching</span>
+      <p>Bedrock and the model <strong>automatically</strong> try to reuse eligible prompt prefixes. You add no controls — just keep static content first and dynamic content last to raise the odds of an exact prefix match.</p>
+      <p>It's best-effort: repeating an identical prompt doesn't guarantee a hit, and hit rates vary. Amazon Nova supports it for text prompts.</p>
+    </div>
+
+    <div class="svc">
+      <span class="name">🎯 Explicit Prompt Caching</span>
+      <p>You mark the reusable prefix yourself with <strong>cache checkpoints</strong>. In the Converse API you add a cache point (e.g. <code>cachePoint</code>) or set a longer <code>ttl</code>; in <code>InvokeModel</code> for Claude models you use <code>cache_control</code>.</p>
+      <p>Rules that matter: the prefix must meet the model's <strong>minimum token count</strong> per checkpoint (commonly 1,024 tokens, sometimes 512 or 4,096), there's a <strong>maximum number of checkpoints</strong> (often 4), and the cache has a <strong>TTL</strong> — typically 5 minutes, with a 1-hour option on some models.</p>
+    </div>
+
+    <div class="svc">
+      <span class="name">💵 How cached tokens are billed</span>
+      <p>Tokens <strong>read</strong> from cache are billed at the model's reduced cache-read rate — that's the saving. Tokens <strong>written</strong> to cache may be billed <em>higher</em> than the normal input rate, so caching pays off when a prefix is reused, not for one-off prompts.</p>
+      <p>Read the cache fields in the response (<code>cached_tokens</code> and <code>cache_write_tokens</code>) to confirm what actually hit — never assume.</p>
+    </div>
+
+    <div class="chips">
+      <span><b>Converse</b> / ConverseStream</span>
+      <span><b>InvokeModel</b></span>
+      <span><b>Prompt management</b></span>
+      <span>On-demand only</span>
+      <span>Not with batch inference</span>
+      <span>Works with cross-region inference</span>
+    </div>
+
+    <div class="callout" style="margin-top:18px;">🧸 <b>Plain talk:</b> on AWS it's one switch in Bedrock — prompt caching — plus the discipline of putting the never-changing stuff first and the always-changing stuff last.</div>
+  </section>
+
+  <!-- GOTCHAS -->
+  <section class="card">
+    <span class="index">06 / WATCH OUT</span>
+    <span class="eyebrow">The fine print worth knowing</span>
+    <h2>Four things that trip people up.</h2>
+    <ul class="notes">
+      <li class="warn">🔻 <b>Caching is not a guarantee.</b> It's an availability and eligibility thing — a slightly edited prefix or a cold cache means no hit, and you pay normal input rates for that call.</li>
+      <li class="warn">🔺 <b>Cache writes can cost more.</b> If the prefix changes every request, you're paying the write premium for nothing. Cache what's genuinely reused.</li>
+      <li>⏳ <b>The cache expires.</b> A 5-minute TTL that resets on each hit means a prompt used less often than the TTL won't stay warm — and a longer TTL option exists for slow-moving sessions.</li>
+      <li>🧮 <b>Effort should match savings.</b> Estimate how many tokens you'd cache and how often they repeat before building anything. Big and repetitive = worth it; small or one-shot = skip it.</li>
+    </ul>
+  </section>
+
+  <!-- SUMMARY -->
+  <section class="card summary">
+    <span class="index">07 / THE WHOLE IDEA</span>
+    <span class="eyebrow">One breath</span>
+    <h2>If you remember one thing, remember this.</h2>
+    <div class="seq">
+      <span class="st a">send less</span>
+      <span class="ar">→</span>
+      <span class="st b">don't re-send it</span>
+      <span class="ar">→</span>
+      <span class="st c">meter runs slower</span>
+    </div>
+    <p style="margin:14px auto 0; max-width:640px; font-size:1rem;">Token efficiency isn't about squeezing quality out of your app. It's about never paying twice for the same words — and on AWS, <strong>prompt caching in Amazon Bedrock</strong> is the lever that does most of it.</p>
+  </section>
+
+  <footer>
+    Made with 💛 by Buffy · demonstrates AWS Gen AI concepts<br>
+    <a href="https://docs.aws.amazon.com/bedrock/latest/userguide/prompt-caching.html" target="_blank" rel="noopener">Prompt caching docs</a> ·
+    <a href="https://docs.aws.amazon.com/wellarchitected/latest/generative-ai-lens/gencost03-bp03.html" target="_blank" rel="noopener">Gen AI Lens cost best practice</a> ·
+    <a href="https://aws.amazon.com/bedrock/cost-optimization/" target="_blank" rel="noopener">Bedrock cost optimization</a>
+  </footer>
+</div>
+
+<script>
+  // ----- rates (illustrative, per 1M tokens) -----
+  const RATE_IN    = 3.00;   // standard input
+  const RATE_OUT   = 15.00;  // output
+  const RATE_CACHE = 0.30;   // cache read (~90% off input)
+
+  const rows = [
+    { label: 'System prompt + tool schemas', sub: 'static · identical every call', tokens: 2400, kind: 'static' },
+    { label: 'Retrieved context (top 5 chunks)', sub: 'static · same docs, many questions', tokens: 6800, kind: 'static' },
+    { label: 'Conversation history', sub: 'semi-static · grows slowly', tokens: 1300, kind: 'static' },
+    { label: 'The user\u2019s actual question', sub: 'dynamic · changes every call', tokens: 90, kind: 'dynamic' }
+  ];
+  const OUT_TOKENS = 600;
+
+  const body     = document.getElementById('billBody');
+  const toggle   = document.getElementById('cacheToggle');
+  const cacheLbl = document.getElementById('cacheLbl');
+  const totalEl  = document.getElementById('total');
+  const noteEl   = document.getElementById('totalNote');
+  const barIn    = document.getElementById('barIn');
+  const barOut   = document.getElementById('barOut');
+  const saveBig  = document.getElementById('saveBig');
+  const saveTxt  = document.getElementById('saveTxt');
+  const reduced  = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  // build rows
+  const rowEls = rows.map(r => {
+    const el = document.createElement('div');
+    el.className = 'bill-row';
+    el.innerHTML =
+      '<div><span class="rlabel">' + r.label + '</span><span class="rsub">' + r.sub + '</span></div>' +
+      '<div><span class="rtok">' + r.tokens.toLocaleString() + ' tok</span>' +
+      '<span class="rrate"></span></div>';
+    body.appendChild(el);
+    return el;
+  });
+  const outEl = document.createElement('div');
+  outEl.className = 'bill-row is-out';
+  outEl.innerHTML =
+    '<div><span class="rlabel">Model output</span><span class="rsub">dynamic · the answer itself (pricier rate)</span></div>' +
+    '<div><span class="rtok">' + OUT_TOKENS + ' tok</span><span class="rrate">$' + RATE_OUT.toFixed(2) + ' / M</span></div>';
+  body.appendChild(outEl);
+
+  const staticTokens = rows.filter(r => r.kind === 'static').reduce((a, r) => a + r.tokens, 0);
+  const dynamicTokens = rows.filter(r => r.kind === 'dynamic').reduce((a, r) => a + r.tokens, 0);
+
+  function dollars(tokens, rate) { return tokens / 1e6 * rate; }
+
+  function cost(on) {
+    const staticRate = on ? RATE_CACHE : RATE_IN;
+    return dollars(staticTokens, staticRate) + dollars(dynamicTokens, RATE_IN) + dollars(OUT_TOKENS, RATE_OUT);
+  }
+
+  function animateNumber(el, from, to, prefix, digits) {
+    if (reduced) { el.textContent = prefix + to.toFixed(digits); return; }
+    const start = performance.now(), dur = 500;
+    function step(now) {
+      const t = Math.min((now - start) / dur, 1);
+      const e = 1 - Math.pow(1 - t, 3);
+      el.textContent = prefix + (from + (to - from) * e).toFixed(digits);
+      if (t < 1) requestAnimationFrame(step);
+    }
+    requestAnimationFrame(step);
+  }
+
+  let current = cost(false);
+
+  function render(on, animate) {
+    const c = cost(on);
+    const staticRate = on ? RATE_CACHE : RATE_IN;
+
+    rowEls.forEach((el, i) => {
+      const r = rows[i];
+      el.classList.toggle('live', on && r.kind === 'static');
+      const rateEl = el.querySelector('.rrate');
+      if (on && r.kind === 'static') {
+        rateEl.textContent = 'cached read · $' + staticRate.toFixed(2) + ' / M';
+        rateEl.classList.add('cached');
+      } else {
+        rateEl.textContent = '$' + RATE_IN.toFixed(2) + ' / M';
+        rateEl.classList.remove('cached');
+      }
+    });
+
+    if (animate) {
+      animateNumber(totalEl, current, c, '$', 4);
+    } else {
+      totalEl.textContent = '$' + c.toFixed(4);
+    }
+    current = c;
+
+    noteEl.textContent = on
+      ? 'static prefix read at $' + RATE_CACHE.toFixed(2) + ' / M cache-read rate'
+      : 'input $' + RATE_IN.toFixed(2) + ' / M tokens · output $' + RATE_OUT.toFixed(2) + ' / M tokens';
+
+    // cost bar: input vs output share
+    const inShare = (c - dollars(OUT_TOKENS, RATE_OUT)) / c * 100;
+    barIn.style.width = Math.max(0, Math.min(100, inShare)) + '%';
+    barOut.style.width = Math.max(0, Math.min(100, 100 - inShare)) + '%';
+
+    // savings vs uncached
+    const base = cost(false);
+    if (on) {
+      const per10k = (base - c) * 10000;
+      saveBig.textContent = '$' + per10k.toFixed(0) + ' saved';
+      saveBig.classList.remove('zero');
+      saveTxt.textContent = 'that\u2019s ' + Math.round((1 - c / base) * 100) + '% off the whole bill';
+    } else {
+      saveBig.textContent = '—';
+      saveBig.classList.add('zero');
+      saveTxt.textContent = 'flip the switch to compare';
+    }
+  }
+
+  toggle.addEventListener('change', () => {
+    cacheLbl.textContent = toggle.checked ? 'Prompt caching on' : 'Prompt caching off';
+    render(toggle.checked, true);
+  });
+
+  render(false, false);
+</script>
+</body>
+</html>

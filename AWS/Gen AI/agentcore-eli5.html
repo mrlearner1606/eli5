@@ -1,0 +1,734 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ELI5: Amazon Bedrock AgentCore — Giving Your AI Agent a Body</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Instrument+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --paper: #1A1E2C;
+    --paper-2: #212738;
+    --ink: #F2EFEB;
+    --dim: #BCC3D4;
+    --amber: #F5A623;
+    --amber-glow: #FFB84A;
+    --cyan: #4FD1C5;
+    --line: #323850;
+    --node: #121620;
+    --accent-2: #7C5BF5;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Instrument Sans', system-ui, sans-serif;
+    background-color: var(--paper);
+    background-image:
+      radial-gradient(circle at 18% 12%, rgba(124, 91, 245, 0.08), transparent 38%),
+      radial-gradient(circle at 88% 88%, rgba(245, 166, 35, 0.06), transparent 42%);
+    color: var(--ink);
+    padding: 36px 18px 72px;
+    line-height: 1.6;
+    overflow-x: hidden;
+  }
+  .page { max-width: 900px; margin: 0 auto; }
+
+  .eyebrow {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.78rem;
+    font-weight: 600;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--amber);
+    display: block;
+    margin-bottom: 12px;
+  }
+  h1, h2 {
+    font-family: 'DM Serif Display', serif;
+    font-weight: 400;
+    line-height: 1.12;
+    color: var(--ink);
+  }
+  h1 { font-size: clamp(2rem, 5.4vw, 3.3rem); }
+  h2 { font-size: clamp(1.5rem, 3.2vw, 2rem); margin-bottom: 12px; }
+
+  p { font-size: 1.1rem; margin-bottom: 11px; color: var(--dim); }
+  p strong { color: var(--ink); font-weight: 600; }
+  .lead { font-size: 1.18rem; color: var(--ink); }
+
+  /* ---------- Hero ---------- */
+  .hero { text-align: center; padding: 10px 0 6px; }
+  .hero-sub { font-size: 1.15rem; color: var(--amber); font-weight: 600; letter-spacing: 0.02em; }
+
+  /* signature: the workshop blueprint */
+  .workshop {
+    margin: 32px auto 10px;
+    position: relative;
+    width: 100%;
+    max-width: 680px;
+    aspect-ratio: 680 / 420;
+    background:
+      radial-gradient(circle at 50% 46%, rgba(245, 166, 35, 0.10), transparent 46%),
+      var(--paper-2);
+    border: 1px solid var(--line);
+    border-radius: 20px;
+    box-shadow: inset 0 0 0 1px rgba(255,255,255,0.02), 0 20px 50px -22px rgba(0,0,0,0.6);
+    overflow: hidden;
+  }
+  .workshop-label {
+    position: absolute;
+    top: 12px; left: 50%;
+    transform: translateX(-50%);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.72rem;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--dim);
+    white-space: nowrap;
+  }
+  .workshop-label b { color: var(--amber); font-weight: 600; }
+
+  .brain {
+    position: absolute;
+    left: 50%; top: 52%;
+    transform: translate(-50%, -50%);
+    width: 118px; height: 118px;
+    border-radius: 50%;
+    background: radial-gradient(circle at 36% 32%, rgba(255,184,74,0.35), rgba(245,166,35,0.08) 60%), var(--node);
+    border: 2px solid var(--amber);
+    box-shadow: 0 0 26px -2px rgba(245,166,35,0.45), 0 10px 26px -10px rgba(0,0,0,0.8);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    z-index: 3;
+  }
+  .brain .emoji { font-size: 1.7rem; line-height: 1; }
+  .brain .tag {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.62rem;
+    letter-spacing: 0.1em;
+    color: var(--amber-glow);
+    text-transform: uppercase;
+  }
+  .brain-pulse {
+    position: absolute;
+    left: 50%; top: 52%;
+    transform: translate(-50%, -50%);
+    width: 118px; height: 118px;
+    border-radius: 50%;
+    border: 1px solid rgba(245,166,35,0.5);
+    animation: ping 3s ease-out infinite;
+    pointer-events: none;
+    z-index: 2;
+  }
+  @keyframes ping {
+    0% { transform: translate(-50%,-50%) scale(1); opacity: 0.7; }
+    70%, 100% { transform: translate(-50%,-50%) scale(1.55); opacity: 0; }
+  }
+
+  .pod {
+    position: absolute;
+    width: 168px;
+    background: var(--node);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 10px 12px;
+    text-align: left;
+    z-index: 4;
+    box-shadow: 0 8px 20px -12px rgba(0,0,0,0.8);
+    transition: transform 0.18s ease, border-color 0.18s ease;
+  }
+  .pod:hover { transform: translateY(-2px); border-color: var(--amber); }
+  .pod .p-emoji { font-size: 1.1rem; }
+  .pod .p-name {
+    display: block;
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 600;
+    font-size: 0.74rem;
+    letter-spacing: 0.08em;
+    margin-top: 2px;
+  }
+  .pod .p-role {
+    display: block;
+    font-size: 0.8rem;
+    color: var(--dim);
+    line-height: 1.35;
+    margin-top: 2px;
+  }
+  .pod.amber .p-name { color: var(--amber-glow); }
+  .pod.cyan  .p-name { color: var(--cyan); }
+  .pod.purple .p-name { color: #A88CFF; }
+
+  .pod.p-gw  { left: 8px;  top: 15%;  border-left: 3px solid var(--amber); }
+  .pod.p-mem { left: 8px;  top: 62%;  border-left: 3px solid var(--cyan); }
+  .pod.p-id  { right: 8px; top: 15%;  border-left: 3px solid var(--accent-2); }
+  .pod.p-br  { right: 8px; top: 62%;  border-left: 3px solid var(--amber); }
+
+  .pod.p-ci {
+    left: 50%; bottom: 10px;
+    transform: translateX(-50%);
+    width: 230px;
+    border-left: 3px solid var(--cyan);
+    text-align: center;
+  }
+  .pod.p-ci:hover { transform: translateX(-50%) translateY(-2px); }
+
+  .wire {
+    position: absolute;
+    height: 0;
+    border-top: 1px dashed rgba(188,195,212,0.35);
+    z-index: 1;
+  }
+  .wire.w-gw  { left: 178px; top: 24%; width: 128px; }
+  .wire.w-mem { left: 178px; top: 72%; width: 128px; }
+  .wire.w-id  { right: 178px; top: 24%; width: 128px; }
+  .wire.w-br  { right: 178px; top: 72%; width: 128px; }
+  .wire.w-ci  {
+    left: 50%; bottom: 96px;
+    transform: translateX(-50%);
+    width: 0; height: 64px;
+    border-top: none;
+    border-left: 1px dashed rgba(188,195,212,0.35);
+  }
+
+  .caption {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.78rem;
+    color: var(--dim);
+    letter-spacing: 0.04em;
+    margin-top: 10px;
+    text-align: center;
+  }
+
+  /* ---------- Cards ---------- */
+  .card {
+    background: var(--paper-2);
+    border: 1px solid var(--line);
+    border-radius: 18px;
+    padding: clamp(22px, 4vw, 34px);
+    margin: 32px 0;
+    box-shadow: 0 10px 30px -22px rgba(0,0,0,0.6);
+    position: relative;
+  }
+  .glow-bar {
+    position: absolute;
+    top: -1px; left: 28px; right: 28px;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, var(--amber), transparent);
+    border-radius: 2px;
+    opacity: 0.7;
+  }
+  .glow-bar.cyan { background: linear-gradient(90deg, transparent, var(--cyan), transparent); }
+  .glow-bar.purple { background: linear-gradient(90deg, transparent, var(--accent-2), transparent); }
+
+  /* ---------- Translation boxes ---------- */
+  .translation {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0;
+    margin: 16px 0 6px;
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    overflow: hidden;
+  }
+  .trans {
+    padding: 16px 18px;
+    background: rgba(255,255,255,0.018);
+    font-family: 'DM Serif Display', serif;
+    font-size: 1.02rem;
+    line-height: 1.5;
+  }
+  .trans.left { border-right: 1px solid var(--line); color: var(--dim); }
+  .trans.right { color: var(--ink); background: rgba(245,166,35,0.05); }
+  .trans-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.7rem;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--amber);
+    display: block;
+    margin-top: 8px;
+    opacity: 0.8;
+  }
+
+  /* ---------- Flow ---------- */
+  .flow {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    margin: 14px 0 4px;
+  }
+  .flow-row {
+    display: grid;
+    grid-template-columns: 36px 1fr 30px;
+    align-items: center;
+    gap: 14px;
+    padding: 10px 0;
+  }
+  .flow-num {
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 600;
+    color: var(--amber);
+    font-size: 0.92rem;
+    text-align: center;
+  }
+  .flow-body {
+    background: rgba(255,255,255,0.018);
+    border: 1px solid var(--line);
+    border-left: 3px solid var(--amber);
+    border-radius: 10px;
+    padding: 12px 16px;
+    font-size: 1.04rem;
+  }
+  .flow-body strong { color: var(--ink); }
+  .flow-arrow {
+    text-align: center;
+    color: var(--dim);
+    font-size: 0.9rem;
+    padding-bottom: 10px;
+    line-height: 1;
+  }
+
+  /* ---------- Module grid ---------- */
+  .ingredients {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+    gap: 14px;
+    margin: 16px 0 4px;
+  }
+  .ingr {
+    background: rgba(255,255,255,0.02);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 16px 16px 14px;
+    border-top: 3px solid var(--amber);
+  }
+  .ingr.cyan { border-top-color: var(--cyan); }
+  .ingr.purple { border-top-color: var(--accent-2); }
+  .ingr .tag {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.72rem;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--dim);
+    display: block;
+    margin-bottom: 6px;
+  }
+  .ingr h3 {
+    font-family: 'DM Serif Display', serif;
+    font-weight: 400;
+    font-size: 1.08rem;
+    margin-bottom: 6px;
+  }
+  .ingr p { font-size: 1rem; margin-bottom: 0; }
+
+  /* ---------- AWS boxes ---------- */
+  .aws-row {
+    display: grid;
+    grid-template-columns: 1.4fr 1fr;
+    gap: 14px;
+    margin: 14px 0 2px;
+  }
+  .aws-box {
+    background: rgba(255,255,255,0.018);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 14px 16px;
+  }
+  .aws-box .svc {
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 600;
+    font-size: 0.82rem;
+    letter-spacing: 0.06em;
+    color: var(--amber);
+    display: block;
+    margin-bottom: 6px;
+  }
+  .aws-box p { font-size: 1rem; margin-bottom: 0; }
+  .aws-box p strong { color: var(--ink); }
+
+  /* ---------- Chips ---------- */
+  .dims {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin: 14px 0 4px;
+  }
+  .dim-chip {
+    background: rgba(124, 91, 245, 0.14);
+    border: 1px solid rgba(124, 91, 245, 0.4);
+    border-radius: 999px;
+    padding: 6px 12px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.78rem;
+    color: var(--dim);
+    letter-spacing: 0.02em;
+  }
+  .dim-chip b { color: var(--ink); font-weight: 600; }
+
+  /* ---------- Summary ---------- */
+  .summary { text-align: center; margin: 32px 0 10px; }
+  .summary h2 { margin-bottom: 14px; }
+  .formula {
+    font-family: 'DM Serif Display', serif;
+    font-size: clamp(1.4rem, 3.2vw, 2rem);
+    line-height: 1.6;
+    color: var(--ink);
+    padding: 16px 0 8px;
+  }
+  .formula .arrow { color: var(--amber); padding: 0 8px; }
+  .formula .group {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  .formula .chunk {
+    background: rgba(245,166,35,0.10);
+    border: 1px solid rgba(245,166,35,0.3);
+    border-radius: 10px;
+    padding: 6px 12px;
+    color: var(--amber-glow);
+    font-size: 0.85em;
+  }
+  .formula .store {
+    background: rgba(124, 91, 245,0.12);
+    border: 1px solid rgba(124, 91, 245,0.3);
+    border-radius: 10px;
+    padding: 6px 12px;
+    color: #A88CFF;
+    font-size: 0.85em;
+  }
+  .formula .small { font-size: 0.72em; color: var(--dim); font-family: 'Instrument Sans', sans-serif; }
+
+  footer {
+    text-align: center;
+    color: var(--dim);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.78rem;
+    margin-top: 40px;
+    opacity: 0.8;
+  }
+  footer a { color: var(--amber-glow); text-decoration: none; }
+
+  a:focus-visible, button:focus-visible {
+    outline: 3px solid var(--amber);
+    outline-offset: 2px;
+  }
+
+  @media (max-width: 640px) {
+    .translation { grid-template-columns: 1fr; }
+    .trans.left { border-right: none; border-bottom: 1px solid var(--line); }
+    .aws-row { grid-template-columns: 1fr; }
+    .workshop { aspect-ratio: auto; padding: 44px 16px 16px; }
+    .workshop-label { top: 14px; }
+    .brain, .brain-pulse {
+      position: relative;
+      left: auto; top: auto;
+      transform: none;
+      margin: 0 auto 14px;
+    }
+    .brain-pulse { position: absolute; left: 50%; top: 44%; transform: translate(-50%,-50%); }
+    .pod, .pod.p-ci {
+      position: relative;
+      left: auto; right: auto; top: auto; bottom: auto;
+      transform: none;
+      width: 100%;
+    }
+    .pod.p-ci:hover { transform: translateY(-2px); }
+    .wire { display: none; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .brain-pulse { animation: none; opacity: 0; }
+    .pod { transition: none; }
+  }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <!-- HERO -->
+  <header class="hero">
+    <span class="eyebrow">AWS Gen AI · Explained like you're 5</span>
+    <h1>Your AI agent has a brilliant brain. AgentCore gives it a body.</h1>
+    <p class="hero-sub">That's what <strong>Amazon Bedrock AgentCore</strong> does.</p>
+
+    <div class="workshop" role="img" aria-label="Blueprint of AgentCore: a glowing agent brain in the center of the Runtime workshop, wired to Gateway, Memory, Identity, Browser, and Code Interpreter pods">
+      <span class="workshop-label">🏭 the workshop = <b>AgentCore Runtime</b></span>
+
+      <div class="pod p-gw amber">
+        <span class="p-emoji">🧰</span>
+        <span class="p-name">GATEWAY</span>
+        <span class="p-role">turns your APIs &amp; Lambda into tools</span>
+      </div>
+      <div class="pod p-id purple">
+        <span class="p-emoji">🎫</span>
+        <span class="p-name">IDENTITY</span>
+        <span class="p-role">the agent's ID badge &amp; keys</span>
+      </div>
+      <div class="pod p-mem cyan">
+        <span class="p-emoji">📓</span>
+        <span class="p-name">MEMORY</span>
+        <span class="p-role">remembers this chat &amp; past chats</span>
+      </div>
+      <div class="pod p-br amber">
+        <span class="p-emoji">🌐</span>
+        <span class="p-name">BROWSER</span>
+        <span class="p-role">a safe window to click around the web</span>
+      </div>
+
+      <div class="wire w-gw" aria-hidden="true"></div>
+      <div class="wire w-id" aria-hidden="true"></div>
+      <div class="wire w-mem" aria-hidden="true"></div>
+      <div class="wire w-br" aria-hidden="true"></div>
+      <div class="wire w-ci" aria-hidden="true"></div>
+
+      <div class="brain-pulse" aria-hidden="true"></div>
+      <div class="brain">
+        <span class="emoji">🧠</span>
+        <span class="tag">your agent</span>
+      </div>
+
+      <div class="pod p-ci cyan">
+        <span class="p-emoji">🧮</span>
+        <span class="p-name">CODE INTERPRETER</span>
+        <span class="p-role">a sealed sandbox to run code &amp; math</span>
+      </div>
+    </div>
+
+    <div class="caption">The brain thinks. AgentCore is everything else it needs to actually do the job.</div>
+  </header>
+
+  <!-- THE IDEA -->
+  <section class="card">
+    <div class="glow-bar"></div>
+    <span class="eyebrow">The idea</span>
+    <h2>A brain in a jar can think. It can't <em>do</em> anything.</h2>
+    <p class="lead">An LLM is like a genius new hire who shows up on day one with an amazing brain — and no hands, no notebook, no ID badge, and no workshop.</p>
+    <p>Ask it a question, it answers brilliantly. Ask it to <strong>actually book the flight, check your database, run the math, or remember yesterday's chat</strong> — and it just… can't. It can only text.</p>
+    <p>Worse: if you tried to build all of that yourself — the secure hosting, the tool plumbing, the memory store, the login system, the monitoring — you'd spend months on infrastructure before your agent does anything useful.</p>
+    <p><strong>Amazon Bedrock AgentCore</strong> is AWS's answer: a set of ready-made, secure <strong>body parts for your agent</strong>. You bring the brain (any model, any framework); AgentCore provides the workshop, the hands, the memory, and the security cameras.</p>
+    <p style="margin-bottom:0;">🧸 <strong>In one breath:</strong> AgentCore turns a chatbot that talks into an agent that acts — safely, at scale, without you managing servers.</p>
+  </section>
+
+  <!-- WHAT IT REALLY IS -->
+  <section class="card">
+    <div class="glow-bar"></div>
+    <span class="eyebrow">What it really is</span>
+    <h2>Not one service. A toolbox of body parts.</h2>
+    <p>AgentCore is <strong>modular</strong>: each piece works on its own, or snaps together. Think of it as hiring staff for your genius.</p>
+
+    <div class="translation" role="group" aria-label="From a plain model to a full agent">
+      <div class="trans left">
+        A plain model<br>“I can explain quantum physics… but I can't open a file, call an API, or remember you tomorrow.”
+        <span class="trans-label">brain only 🧠</span>
+      </div>
+      <div class="trans right">
+        The same model + AgentCore<br>“Give me a task. I'll call your tools, check my notes, run the code, browse the web — and you can watch every step.”
+        <span class="trans-label">brain + body 🦾</span>
+      </div>
+    </div>
+
+    <p style="margin-top:12px;">And here's the part enterprises care about: it's <strong>framework-agnostic and model-agnostic</strong>. Your agent code can use Strands Agents, LangGraph, CrewAI, or LlamaIndex. The brain can be Claude, Amazon Nova, GPT, or Gemini. AgentCore doesn't care — it hosts and supports all of them.</p>
+    <p style="margin-bottom:0;">🧸 <strong>Kid version:</strong> it's like a universal power strip. Whatever brain you plug in, the hands, memory, and badge just work.</p>
+  </section>
+
+  <!-- THE MODULES -->
+  <section class="card">
+    <div class="glow-bar cyan"></div>
+    <span class="eyebrow">The body parts</span>
+    <h2>Seven modules. Each one fills a gap the brain can't fill alone.</h2>
+    <div class="ingredients">
+      <div class="ingr">
+        <span class="tag">🏭 the workshop floor</span>
+        <h3>Runtime</h3>
+        <p>The secure, serverless place your agent actually runs. It scales up and down on its own, and every user session gets its own isolated microVM — a sealed room, so sessions can't snoop on each other.</p>
+      </div>
+      <div class="ingr cyan">
+        <span class="tag">🧰 the toolbox adapter</span>
+        <h3>Gateway</h3>
+        <p>Takes your existing APIs, Lambda functions, and services — and turns them into <strong>MCP-compatible tools</strong> the agent can grab, in a few lines of code. No rewriting your backend.</p>
+      </div>
+      <div class="ingr purple">
+        <span class="tag">📓 the notebook</span>
+        <h3>Memory</h3>
+        <p><strong>Short-term</strong> memory keeps the current conversation coherent. <strong>Long-term</strong> memory persists across sessions — the agent remembers you next week, and you control what it keeps.</p>
+      </div>
+      <div class="ingr purple">
+        <span class="tag">🎫 the ID badge</span>
+        <h3>Identity</h3>
+        <p>Proves who the agent is and what it's allowed to touch. Works with identity providers you already use — Cognito, Okta, Microsoft Entra ID, Auth0 — so users don't need new accounts.</p>
+      </div>
+      <div class="ingr cyan">
+        <span class="tag">🧮 the sealed math lab</span>
+        <h3>Code Interpreter</h3>
+        <p>An isolated sandbox where the agent can write and run code — Python, JavaScript, TypeScript — to do real math, crunch files, and verify its answers instead of guessing.</p>
+      </div>
+      <div class="ingr">
+        <span class="tag">🌐 the web window</span>
+        <h3>Browser</h3>
+        <p>A fast, secure, cloud-hosted browser the agent can drive: navigate sites, fill forms, click buttons, extract info. Works with automation tools like Playwright — fully managed.</p>
+      </div>
+      <div class="ingr cyan">
+        <span class="tag">📺 the CCTV room</span>
+        <h3>Observability</h3>
+        <p>Traces every step the agent took — every thought, tool call, and output — using OpenTelemetry, viewable in CloudWatch. When an agent goes weird at 2 a.m., this is how you find out why.</p>
+      </div>
+    </div>
+    <p style="margin:14px 0 0; font-size:1rem;">🧸 <strong>Plain talk:</strong> Runtime hosts it, Gateway arms it, Memory keeps it, Identity vouches for it, Code Interpreter and Browser give it hands, Observability lets you watch it.</p>
+
+    <div class="dims" aria-label="Newer AgentCore capabilities">
+      <span class="dim-chip"><b>Also in the family:</b> Evaluations</span>
+      <span class="dim-chip"><b>Policy</b> · guardrails on tool calls</span>
+      <span class="dim-chip"><b>Registry</b> · catalog of tools &amp; agents</span>
+      <span class="dim-chip"><b>Payments</b> · agents pay for APIs</span>
+      <span class="dim-chip"><b>Optimization</b> · AI-tuned prompts</span>
+    </div>
+  </section>
+
+  <!-- HOW IT WORKS -->
+  <section class="card">
+    <div class="glow-bar purple"></div>
+    <span class="eyebrow">How it works</span>
+    <h2>One user question, start to finish.</h2>
+    <div class="flow">
+      <div class="flow-row">
+        <div class="flow-num">01</div>
+        <div class="flow-body"><strong>You ask the agent something hard.</strong> “Check our returns API and refund order #4521.”</div>
+        <div style="width:30px"></div>
+      </div>
+      <div class="flow-arrow">⬇</div>
+
+      <div class="flow-row">
+        <div class="flow-num">02</div>
+        <div class="flow-body"><strong>Runtime spins up a sealed room.</strong> A microVM just for this session — your agent code plus any model you chose, isolated from everyone else's sessions.</div>
+        <div style="width:30px"></div>
+      </div>
+      <div class="flow-arrow">⬇</div>
+
+      <div class="flow-row">
+        <div class="flow-num">03</div>
+        <div class="flow-body"><strong>Memory speaks up.</strong> “This user complained last Tuesday — be gentle.” Short-term context plus long-term recall lands in the prompt.</div>
+        <div style="width:30px"></div>
+      </div>
+      <div class="flow-arrow">⬇</div>
+
+      <div class="flow-row">
+        <div class="flow-num">04</div>
+        <div class="flow-body"><strong>Identity shows the badge.</strong> The agent gets scoped, temporary credentials — only the permissions this task needs, nothing more.</div>
+        <div style="width:30px"></div>
+      </div>
+      <div class="flow-arrow">⬇</div>
+
+      <div class="flow-row">
+        <div class="flow-num">05</div>
+        <div class="flow-body"><strong>Gateway hands over the tools.</strong> Your returns API — already wrapped as an MCP tool — gets called. If math is needed, Code Interpreter runs it; if a webpage matters, Browser reads it.</div>
+        <div style="width:30px"></div>
+      </div>
+      <div class="flow-arrow">⬇</div>
+
+      <div class="flow-row">
+        <div class="flow-num">06</div>
+        <div class="flow-body"><strong>The refund happens — and CCTV caught all of it.</strong> Observability recorded every step as OTEL traces in CloudWatch, so you can audit exactly what the agent did.</div>
+        <div style="width:30px"></div>
+      </div>
+    </div>
+    <p style="margin-top:12px; font-size:1rem;">🧸 <strong>Plain talk:</strong> ask → sealed room → memory → badge → tools → answer, with every step on camera.</p>
+  </section>
+
+  <!-- WHY IT MATTERS -->
+  <section class="card">
+    <div class="glow-bar"></div>
+    <span class="eyebrow">Why it matters</span>
+    <h2>The prototype-to-production gap, closed.</h2>
+    <p>Tons of teams have a cool agent demo. Almost none have one running for a million real users — because production needs security, isolation, memory, auditing, and scale. Building all that by hand is months of work nobody brags about.</p>
+    <div class="ingredients" style="grid-template-columns: 1fr 1fr 1fr;">
+      <div class="ingr">
+        <span class="tag">🏗️ No servers to babysit</span>
+        <h3>Serverless everything</h3>
+        <p>Runtime scales from one user to a million without you re-architecting. Cold starts are tuned for real-time chat.</p>
+      </div>
+      <div class="ingr cyan">
+        <span class="tag">🔒 Safety by default</span>
+        <h3>Isolated sessions</h3>
+        <p>Each session runs in its own microVM. One user's agent can't see another's data — a big deal when agents take real actions.</p>
+      </div>
+      <div class="ingr purple">
+        <span class="tag">🧩 Freedom preserved</span>
+        <h3>Any brain, any framework</h3>
+        <p>Open-source flexibility plus enterprise-grade infrastructure — you don't have to pick one.</p>
+      </div>
+    </div>
+    <p style="margin-top:14px; margin-bottom:0;">🧸 <strong>Kid version:</strong> the demo is the science project. AgentCore is the factory that lets you ship the science project to the whole world.</p>
+  </section>
+
+  <!-- ON AWS -->
+  <section class="card">
+    <div class="glow-bar purple"></div>
+    <span class="eyebrow">On AWS</span>
+    <h2>Where AgentCore fits in the AWS Gen AI world.</h2>
+    <div class="aws-row">
+      <div class="aws-box">
+        <span class="svc">🤝 Amazon Bedrock</span>
+        <p>AgentCore lives under the <strong>Amazon Bedrock</strong> umbrella. Bedrock gives you the <strong>models</strong> (the brains); AgentCore gives you the <strong>agent infrastructure</strong> (the body). They're designed for each other but not locked together — AgentCore works with models outside Bedrock too.</p>
+      </div>
+      <div class="aws-box">
+        <span class="svc">🔌 MCP &amp; A2A</span>
+        <p>AgentCore speaks the open protocols agents use: <strong>MCP</strong> (Model Context Protocol) for tools and <strong>A2A</strong> for agent-to-agent work. Gateway turns your APIs into MCP tools; your agent can also call remote MCP servers.</p>
+      </div>
+    </div>
+    <div class="aws-row">
+      <div class="aws-box">
+        <span class="svc">📊 Amazon CloudWatch</span>
+        <p>Observability emits standard <strong>OpenTelemetry</strong> traces that land in CloudWatch — same monitoring stack your other AWS workloads already use. No separate agent-only dashboard to learn.</p>
+      </div>
+      <div class="aws-box">
+        <span class="svc">🆚 The old way: Bedrock Agents</span>
+        <p>Bedrock also has the older, more opinionated <strong>Bedrock Agents</strong> service. AgentCore is the newer, more flexible sibling: bring any framework and model, get lower-level control. Simple flows → Bedrock Agents. Custom production agents → AgentCore.</p>
+      </div>
+    </div>
+    <p style="margin:14px 0 0; font-size:1rem;">🧸 <strong>Plain talk:</strong> Bedrock sells brains. AgentCore rents out the whole factory where brains become workers. CloudWatch watches the factory floor.</p>
+  </section>
+
+  <!-- SUMMARY -->
+  <section class="card summary">
+    <span class="eyebrow">The whole story in one breath</span>
+    <h2>If you remember one thing, remember this.</h2>
+
+    <div class="formula">
+      <span class="group">
+        🧠 brain
+        <span class="small">(any model, any framework)</span>
+      </span>
+      <span class="arrow">+</span>
+      <span class="group">
+        <span class="store">AgentCore body</span>
+        <span class="small">(Runtime · Gateway · Memory · Identity · Code Interpreter · Browser · Observability)</span>
+      </span>
+      <span class="arrow">→</span>
+      <span class="group">
+        <span class="chunk">an agent that actually does the job</span>
+        <span class="small">— securely, at scale, on camera</span>
+      </span>
+    </div>
+
+    <p style="margin:6px 0 16px; color: var(--amber); font-size: 1.2rem; font-weight: 600;">
+      That's <strong style="color:var(--ink);">Amazon Bedrock AgentCore</strong>. 🎉
+    </p>
+    <p style="margin-bottom:0; font-size: 1rem; color: var(--dim); max-width: 620px; margin-left: auto; margin-right: auto;">
+      Want to try it for real? Start with the AgentCore CLI: deploy a simple Strands or LangGraph agent to Runtime, wire one API through Gateway, and turn on Observability. You'll feel the difference between a chatbot and an agent in one afternoon.
+    </p>
+  </section>
+
+  <footer>
+    Made with 💛 by Buffy ·
+    <a href="https://aws.amazon.com/bedrock/agentcore/" target="_blank" rel="noopener">Amazon Bedrock AgentCore</a> ·
+    <a href="https://docs.aws.amazon.com/bedrock-agentcore/latest/devguide/what-is-bedrock-agentcore.html" target="_blank" rel="noopener">AgentCore Docs</a>
+  </footer>
+</div>
+</body>
+</html>

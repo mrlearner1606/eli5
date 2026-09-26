@@ -1,0 +1,729 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ELI5: Vector Stores & Embeddings in AWS Gen AI</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Instrument+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --paper: #1A1E2C;
+    --paper-2: #212738;
+    --ink: #F2EFEB;
+    --dim: #BCC3D4;
+    --amber: #F5A623;
+    --amber-glow: #FFB84A;
+    --cyan: #4FD1C5;
+    --line: #323850;
+    --node: #121620;
+    --accent-2: #7C5BF5;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Instrument Sans', system-ui, sans-serif;
+    background-color: var(--paper);
+    background-image:
+      radial-gradient(circle at 18% 12%, rgba(124, 91, 245, 0.08), transparent 38%),
+      radial-gradient(circle at 88% 88%, rgba(245, 166, 35, 0.06), transparent 42%);
+    color: var(--ink);
+    padding: 36px 18px 72px;
+    line-height: 1.6;
+    overflow-x: hidden;
+  }
+  .page { max-width: 900px; margin: 0 auto; }
+
+  .eyebrow {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.78rem;
+    font-weight: 600;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--amber);
+    display: block;
+    margin-bottom: 12px;
+  }
+  h1, h2 {
+    font-family: 'DM Serif Display', serif;
+    font-weight: 400;
+    line-height: 1.12;
+    color: var(--ink);
+  }
+  h1 { font-size: clamp(2rem, 5.4vw, 3.3rem); }
+  h2 { font-size: clamp(1.5rem, 3.2vw, 2rem); margin-bottom: 12px; }
+
+  p { font-size: 1.1rem; margin-bottom: 11px; color: var(--dim); }
+  p strong { color: var(--ink); font-weight: 600; }
+  .lead { font-size: 1.18rem; color: var(--ink); }
+
+  /* ---------- Hero ---------- */
+  .hero { text-align: center; padding: 10px 0 6px; }
+  .hero-sub { font-size: 1.15rem; color: var(--amber); font-weight: 600; letter-spacing: 0.02em; }
+
+  .map-scene {
+    margin: 32px auto 10px;
+    position: relative;
+    width: 100%;
+    max-width: 680px;
+    aspect-ratio: 680 / 240;
+    background:
+      radial-gradient(circle at 20% 40%, rgba(124, 91, 245, 0.10), transparent 55%),
+      radial-gradient(circle at 80% 60%, rgba(245, 166, 35, 0.09), transparent 50%),
+      var(--paper-2);
+    border: 1px solid var(--line);
+    border-radius: 20px;
+    padding: 26px 28px;
+    box-shadow: inset 0 0 0 1px rgba(255,255,255,0.02), 0 20px 50px -22px rgba(0,0,0,0.6);
+    overflow: visible;
+  }
+  .map-scene::before {
+    content: "";
+    position: absolute;
+    inset: 26px 28px;
+    border: 1px dashed rgba(255,255,255,0.05);
+    border-radius: 12px;
+    pointer-events: none;
+  }
+  .axis-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.7rem;
+    letter-spacing: 0.14em;
+    color: var(--dim);
+    opacity: 0.55;
+  }
+  .axis-x, .axis-x2 { position: absolute; bottom: 14px; left: 34px; right: 34px; height: 2px; background: linear-gradient(90deg, transparent, var(--line) 8%, var(--line) 92%, transparent); }
+  .axis-y { position: absolute; left: 44px; top: 38px; bottom: 32px; width: 2px; background: linear-gradient(180deg, transparent, var(--line) 10%, var(--line) 90%, transparent); }
+
+  .node {
+    position: absolute;
+    width: 30px; height: 30px;
+    border-radius: 50%;
+    background: var(--node);
+    border: 2px solid var(--line);
+    box-shadow: 0 6px 18px -8px rgba(0,0,0,0.7), inset 0 0 0 1px rgba(255,255,255,0.03);
+    transition: transform 0.18s ease, border-color 0.18s ease, box-shadow 0.25s ease;
+    cursor: default;
+    z-index: 2;
+  }
+  .node::after {
+    content: attr(data-label);
+    position: absolute;
+    left: calc(100% + 8px);
+    top: 50%;
+    transform: translateY(-50%);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.7rem;
+    color: var(--dim);
+    white-space: nowrap;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+  }
+  .node:hover { transform: scale(1.18); z-index: 5; }
+  .node:hover::after { opacity: 1; }
+
+  .node.cats     { left: 18%;  bottom: 24%; border-color: #8E6FCF; box-shadow: 0 0 16px -2px rgba(142,111,252,0.5), 0 6px 18px -8px rgba(0,0,0,0.7); }
+  .node.dogs     { left: 33%;  bottom: 30%; border-color: var(--amber-glow); box-shadow: 0 0 16px -2px rgba(255,184,74,0.45), 0 6px 18px -8px rgba(0,0,0,0.7); }
+  .node.cars     { left: 52%;  bottom: 22%; border-color: var(--cyan); box-shadow: 0 0 16px -2px rgba(79,209,197,0.4), 0 6px 18px -8px rgba(0,0,0,0.7); }
+  .node.coffee   { left: 62%;  bottom: 34%; border-color: #D98CB5; box-shadow: 0 0 16px -2px rgba(217,140,181,0.4), 0 6px 18px -8px rgba(0,0,0,0.7); }
+  .node.sepia    { left: 77%;  bottom: 28%; border-color: #C9A57B; box-shadow: 0 0 16px -2px rgba(201,165,123,0.4), 0 6px 18px -8px rgba(0,0,0,0.7); }
+
+  .query-glow {
+    position: absolute;
+    left: 44%;
+    bottom: 26%;
+    width: 64px; height: 64px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(245,166,35,0.55), rgba(245,166,35,0) 70%);
+    animation: pulse 2.6s ease-in-out infinite;
+    pointer-events: none;
+    z-index: 1;
+  }
+  @keyframes pulse {
+    0%, 100% { transform: scale(0.85); opacity: 0.55; }
+    50% { transform: scale(1.18); opacity: 0.95; }
+  }
+  .query-marker {
+    position: absolute;
+    left: 44%; bottom: 26%;
+    width: 16px; height: 16px;
+    margin-left: -8px; margin-bottom: -8px;
+    background: var(--amber);
+    border: 2px solid var(--ink);
+    border-radius: 50%;
+    box-shadow: 0 0 14px 2px var(--amber);
+    z-index: 3;
+  }
+
+  .drift {
+    position: absolute;
+    background: var(--amber-glow);
+    color: var(--paper);
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 600;
+    font-size: 0.72rem;
+    padding: 4px 7px;
+    border-radius: 6px;
+    box-shadow: 0 4px 12px -4px rgba(245,166,35,0.5);
+    letter-spacing: 0.04em;
+  }
+
+  /* ---------- Cards ---------- */
+  .card {
+    background: var(--paper-2);
+    border: 1px solid var(--line);
+    border-radius: 18px;
+    padding: clamp(22px, 4vw, 34px);
+    margin: 32px 0;
+    box-shadow: 0 10px 30px -22px rgba(0,0,0,0.6);
+    position: relative;
+  }
+  .glow-bar {
+    position: absolute;
+    top: -1px; left: 28px; right: 28px;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, var(--amber), transparent);
+    border-radius: 2px;
+    opacity: 0.7;
+  }
+  .glow-bar.cyan { background: linear-gradient(90deg, transparent, var(--cyan), transparent); }
+  .glow-bar.purple { background: linear-gradient(90deg, transparent, var(--accent-2), transparent); }
+
+  /* floating label thing */
+  .float {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    background: rgba(245,166,35,0.10);
+    border: 1px solid rgba(245,166,35,0.35);
+    border-radius: 999px;
+    padding: 6px 14px 6px 10px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.78rem;
+    color: var(--amber-glow);
+    margin: 10px 0 4px;
+  }
+  .float .dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: var(--amber);
+    box-shadow: 0 0 8px var(--amber);
+  }
+
+  /* ---------- Translation boxes ---------- */
+  .translation {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0;
+    margin: 16px 0 6px;
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    overflow: hidden;
+  }
+  .trans {
+    padding: 16px 18px;
+    background: rgba(255,255,255,0.018);
+    font-family: 'DM Serif Display', serif;
+    font-size: 1.02rem;
+    line-height: 1.5;
+  }
+  .trans.left { border-right: 1px solid var(--line); color: var(--dim); }
+  .trans.right { color: var(--ink); background: rgba(245,166,35,0.05); }
+  .trans-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.7rem;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--amber);
+    display: block;
+    margin-top: 8px;
+    opacity: 0.8;
+  }
+
+  /* ---------- Flow ---------- */
+  .flow {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    margin: 14px 0 4px;
+  }
+  .flow-row {
+    display: grid;
+    grid-template-columns: 36px 1fr 30px;
+    align-items: center;
+    gap: 14px;
+    padding: 10px 0;
+  }
+  .flow-num {
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 600;
+    color: var(--amber);
+    font-size: 0.92rem;
+    text-align: center;
+  }
+  .flow-body {
+    background: rgba(255,255,255,0.018);
+    border: 1px solid var(--line);
+    border-left: 3px solid var(--amber);
+    border-radius: 10px;
+    padding: 12px 16px;
+    font-size: 1.04rem;
+  }
+  .flow-body strong { color: var(--ink); }
+  .flow-arrow {
+    text-align: center;
+    color: var(--dim);
+    font-size: 0.9rem;
+    padding-bottom: 10px;
+    line-height: 1;
+  }
+
+  /* ---------- Ingredients ---------- */
+  .ingredients {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+    gap: 14px;
+    margin: 16px 0 4px;
+  }
+  .ingr {
+    background: rgba(255,255,255,0.02);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 16px 16px 14px;
+    border-top: 3px solid var(--amber);
+  }
+  .ingr.cyan { border-top-color: var(--cyan); }
+  .ingr.purple { border-top-color: var(--accent-2); }
+  .ingr .tag {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.72rem;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--dim);
+    display: block;
+    margin-bottom: 6px;
+  }
+  .ingr h3 {
+    font-family: 'DM Serif Display', serif;
+    font-weight: 400;
+    font-size: 1.08rem;
+    margin-bottom: 6px;
+  }
+  .ingr p { font-size: 1rem; margin-bottom: 0; }
+
+  /* ---------- AWS service ---------- */
+  .aws-row {
+    display: grid;
+    grid-template-columns: 1.4fr 1fr;
+    gap: 14px;
+    margin: 14px 0 2px;
+  }
+  .aws-box {
+    background: rgba(255,255,255,0.018);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 14px 16px;
+  }
+  .aws-box .svc {
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 600;
+    font-size: 0.82rem;
+    letter-spacing: 0.06em;
+    color: var(--amber);
+    display: block;
+    margin-bottom: 6px;
+  }
+  .aws-box p { font-size: 1rem; margin-bottom: 0; }
+  .aws-box p strong { color: var(--ink); }
+
+  /* ---------- Dimension wit ---------- */
+  .dims {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin: 14px 0 4px;
+  }
+  .dim-chip {
+    background: rgba(124, 91, 245, 0.14);
+    border: 1px solid rgba(124, 91, 245, 0.4);
+    border-radius: 999px;
+    padding: 6px 12px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.78rem;
+    color: var(--dim);
+    letter-spacing: 0.02em;
+  }
+  .dim-chip b { color: var(--ink); font-weight: 600; }
+
+  .math {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 1.02rem;
+    color: var(--ink);
+    background: rgba(255,255,255,0.03);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 14px 18px;
+    margin: 16px 0 4px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+  .math .op { color: var(--amber); font-weight: 600; margin: 0 4px; }
+  .math .eq { color: var(--cyan); font-weight: 600; margin: 0 4px; }
+  .math .small { font-size: 0.85rem; color: var(--dim); font-weight: 400; }
+
+  /* ---------- Caption ---------- */
+  .caption {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.78rem;
+    color: var(--dim);
+    letter-spacing: 0.04em;
+    margin-top: 10px;
+    text-align: center;
+  }
+
+  /* ---------- Summary ---------- */
+  .summary {
+    text-align: center;
+    margin: 32px 0 10px;
+  }
+  .summary h2 { margin-bottom: 14px; }
+  .formula {
+    font-family: 'DM Serif Display', serif;
+    font-size: clamp(1.5rem, 3.4vw, 2.1rem);
+    line-height: 1.45;
+    color: var(--ink);
+    padding: 16px 0 8px;
+  }
+  .formula .arrow { color: var(--amber); font-weight: 400; padding: 0 10px; }
+  .formula .group {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+  }
+  .formula .chunk {
+    background: rgba(245,166,35,0.10);
+    border: 1px solid rgba(245,166,35,0.3);
+    border-radius: 10px;
+    padding: 6px 12px;
+    color: var(--amber-glow);
+    font-size: 0.85em;
+  }
+  .formula .store {
+    background: rgba(124, 91, 245,0.12);
+    border: 1px solid rgba(124, 91, 245,0.3);
+    border-radius: 10px;
+    padding: 6px 12px;
+    color: var(--cyan);
+    font-size: 0.85em;
+  }
+
+  footer {
+    text-align: center;
+    color: var(--dim);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.78rem;
+    margin-top: 40px;
+    opacity: 0.8;
+  }
+  footer a { color: var(--amber-glow); text-decoration: none; }
+
+  a:focus-visible, button:focus-visible {
+    outline: 3px solid var(--amber);
+    outline-offset: 2px;
+  }
+  @media (max-width: 640px) {
+    .translation { grid-template-columns: 1fr; }
+    .trans.left { border-right: none; border-bottom: 1px solid var(--line); }
+    .aws-row { grid-template-columns: 1fr; }
+    .map-scene { aspect-ratio: 680 / 280; padding: 18px; }
+    .map-scene .axis-x, .map-scene .axis-x2 { left: 22px; right: 22px; }
+    .map-scene .axis-y { left: 26px; }
+    .node::after { display: none; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .query-glow { animation: none; opacity: 0.7; }
+    .node { transition: none; }
+  }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <!-- HERO -->
+  <header class="hero">
+    <span class="eyebrow">AWS Gen AI · Explained like you're 5</span>
+    <h1>How a computer "feels" the shape of a thing — without ever seeing a picture.</h1>
+    <p class="hero-sub">That's what <strong>embeddings</strong> and <strong>vector stores</strong> do.</p>
+
+    <div class="map-scene" role="img" aria-label="A semantic map: cat, dog, coffee, cars, sepia photos are points in space; a glowing query finds the nearest points">
+      <span class="axis-label" style="position:absolute; left:28px; bottom:6px;">... similarity ...</span>
+      <span class="axis-label" style="position:absolute; right:28px; bottom:6px;">... "different" ...</span>
+
+      <div class="node cats"     data-label="cat pictures"></div>
+      <div class="node dogs"     data-label="dog pictures"></div>
+      <div class="node cars"     data-label="cars"></div>
+      <div class="node coffee"   data-label="coffee"></div>
+      <div class="node sepia"    data-label="old photos"></div>
+
+      <div class="query-glow" aria-hidden="true"></div>
+      <div class="query-marker" aria-hidden="true"></div>
+
+      <div class="axis-x" aria-hidden="true"></div>
+      <div class="axis-y" aria-hidden="true"></div>
+      <div class="axis-x2" aria-hidden="true"></div>
+    </div>
+
+    <div class="caption">Each dot is a thing turned into a list of numbers. Close dots = similar meaning.</div>
+  </header>
+
+  <!-- THE IDEA -->
+  <section class="card">
+    <div class="glow-bar"></div>
+    <span class="eyebrow">The idea</span>
+    <h2>A computer can't "understand," but it can measure closeness.</h2>
+    <p class="lead">Humans read the word "cat" and picture a furry animal. A computer can't picture anything — it only knows numbers.</p>
+    <p>So we do a clever translation. We turn <strong>"cat"</strong> into a <strong>list of numbers</strong>, like <code>[0.82, -0.11, 0.53, ...]</code>, and we do the same for <strong>"dog," "car," "coffee,"</strong> and millions of other things.</p>
+    <p>That list of numbers is an <strong>embedding</strong>.</p>
+    <p>When two things mean similar things, their number-lists end up close together in space — just like on the map above, where "cat" and "dog" sit near each other, and "cars" is far away.</p>
+    <p style="margin-bottom:0;">🧸 <strong>In one breath:</strong> Embed each thing into a list of numbers. Things that mean similar things land near each other on the invisible map.</p>
+  </section>
+
+  <!-- TRANSLATION -->
+  <section class="card">
+    <div class="glow-bar"></div>
+    <span class="eyebrow">What it really is</span>
+    <h2>Think of it as a translator into "number language."</h2>
+    <p>Every sentence, picture, or document gets its own <strong>address in number-space</strong>. That address is the embedding.</p>
+
+    <div class="translation" role="group" aria-label="Translation from human language to number language">
+      <div class="trans left">
+        “A fluffy animal that says meow”
+        <span class="trans-label">human words</span>
+      </div>
+      <div class="trans right">
+        [0.82, −0.11, 0.53, …]<br><span class="small">← same meaning, now in number form</span>
+        <span class="trans-label">embedding</span>
+      </div>
+    </div>
+
+    <p style="margin-top:12px;">Now the computer can do something it's actually good at: <strong>measure distance</strong>. If your question's embedding sits near the "cat" embedding, the computer knows those two are talking about the same kind of thing — even if they share no words.</p>
+    <p style="margin-bottom:0;">🧸 <strong>Kid version:</strong> it's like giving every idea a seat in a giant invisible theater. Similar ideas sit together. The computer just finds the nearest seats.</p>
+  </section>
+
+  <!-- HOW IT WORKS -->
+  <section class="card">
+    <div class="glow-bar cyan"></div>
+    <span class="eyebrow">How it works</span>
+    <h2>From "stuff" to "stuff I can find later" — the pipeline.</h2>
+    <div class="flow">
+      <div class="flow-row">
+        <div class="flow-num">01</div>
+        <div class="flow-body"><strong>Gather your things.</strong> Documents, photos, notes, products — any collection you want to search through or ask questions about.</div>
+        <div style="width:30px"></div>
+      </div>
+      <div class="flow-arrow">⬇</div>
+
+      <div class="flow-row">
+        <div class="flow-num">02</div>
+        <div class="flow-body"><strong>Turn each thing into an embedding.</strong> An AWS model reads it and writes down its "address" — a long list of numbers that captures what it's about.</div>
+        <div style="width:30px"></div>
+      </div>
+      <div class="flow-arrow">⬇</div>
+
+      <div class="flow-row">
+        <div class="flow-num">03</div>
+        <div class="flow-body"><strong>Put those number-lists into a vector store.</strong> A vector store is a special kind of database built for "find me things near this other thing" — not exact keyword matches, but <em>meaning</em> matches.</div>
+        <div style="width:30px"></div>
+      </div>
+      <div class="flow-arrow">⬇</div>
+
+      <div class="flow-row">
+        <div class="flow-num">04</div>
+        <div class="flow-body"><strong>Ask a question.</strong> Turn the question into an embedding too, then ask the vector store: <em>"what's already here that's closest to this?"</em></div>
+        <div style="width:30px"></div>
+      </div>
+      <div class="flow-arrow">⬇</div>
+
+      <div class="flow-row">
+        <div class="flow-num">05</div>
+        <div class="flow-body"><strong>Hand the nearest things to the model.</strong> The gen-AI reads the closest matches and uses them to answer you — that's the heart of RAG.</div>
+        <div style="width:30px"></div>
+      </div>
+    </div>
+    <p style="margin-top:12px; font-size:1rem;">🧸 <strong>Plain talk:</strong> embed your stuff, stash the number-lists, ask in numbers, get back the closest things. That's the whole trick.</p>
+  </section>
+
+  <!-- EMBEDDINGS AS INGREDIENTS -->
+  <section class="card">
+    <div class="glow-bar purple"></div>
+    <span class="eyebrow">The ingredients</span>
+    <h2>Two pieces working together.</h2>
+    <div class="ingredients">
+      <div class="ingr">
+        <span class="tag">Piece 1 · the translator</span>
+        <h3>Embedding model</h3>
+        <p>The model that reads something and spits out its number-list. In AWS, this is often a model in Amazon Bedrock — the same family of models that powers Gen AI features.</p>
+      </div>
+      <div class="ingr cyan">
+        <span class="tag">Piece 2 · the filing cabinet</span>
+        <h3>Vector store</h3>
+        <p>The place that holds all the number-lists and knows how to quickly find the ones nearest to a new query. Think "database, but for similarity instead of exact lookup."</p>
+      </div>
+      <div class="ingr purple">
+        <span class="tag">Bonus · the question</span>
+        <h3>Your query, embedded too</h3>
+        <p>You don't search with keywords — you search by meaning. Your question becomes an embedding, and the store finds the things that sit near it on the map.</p>
+      </div>
+    </div>
+    <div class="translation" role="group" aria-label="What gets embedded and what holds the results">
+      <div class="trans left">
+        Every piece of your data → one embedding<br><span class="small">(pages, lines, images, records — however you chop it up)</span>
+        <span class="trans-label">what goes in</span>
+      </div>
+      <div class="trans right">
+        One vector store full of those embeddings<br><span class="small">(ready to answer "what's like this?")</span>
+        <span class="trans-label">what it becomes</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- THE SHAPE OF THE MAP -->
+  <section class="card">
+    <div class="glow-bar"></div>
+    <span class="eyebrow">The weird part that makes it work</span>
+    <h2>The map is weird on purpose.</h2>
+    <p>An embedding isn't a neat "category" — it's usually a long list of numbers, sometimes hundreds or thousands of them. That's not because humans need that many numbers to think about "cat." It's because the model gets better at <strong>telling subtle things apart</strong> when it has more room to spread ideas out.</p>
+
+    <div class="math" aria-label="A simple picture of what an embedding is">
+      <span>one embedding</span>
+      <span class="op">≈</span>
+      <span class="small">a point in a</span>
+      <span>1,536-dimensional</span>
+      <span class="small">space</span>
+      <span class="op">·</span>
+      <span class="small">close points = similar meaning</span>
+    </div>
+
+    <p style="margin-top:12px;">You don't have to picture 1,536 directions. Just remember the smaller version: <strong>the model carves up meaning so that related things land near each other and unrelated things drift apart.</strong></p>
+    <p style="margin-bottom:0;">🧸 <strong>In one breath:</strong> more dimensions = finer distinctions. The model gets to draw a richer map.</p>
+
+    <div class="dims" aria-label="Common embedding size examples">
+      <span class="dim-chip"><b>384</b> dims · small, fast models</span>
+      <span class="dim-chip"><b>1,536</b> dims · common Bedrock-style size</span>
+      <span class="dim-chip"><b>larger</b> dims · more detail, more space</span>
+    </div>
+  </section>
+
+  <!-- WHY NEAREST NEIGHBORS -->
+  <section class="card">
+    <div class="glow-bar cyan"></div>
+    <span class="eyebrow">How the search actually feels</span>
+    <h2>You don't ask "does it contain the word 'cat'?"</h2>
+    <p>Old search matches words. Embeddings + vector stores match <strong>meaning</strong>. That changes what "finding" feels like.</p>
+
+    <div class="ingredients" style="grid-template-columns: 1fr 1fr;">
+      <div class="ingr" style="border-top-color: var(--dim);">
+        <span class="tag" style="color: var(--dim);">Keyword search</span>
+        <h3 style="color: var(--dim);">"Find pages with the word 'kitten'"</h3>
+        <p>Misses "cat," "feline," "purring animal," and anything described without the exact word. Rigid and literal.</p>
+      </div>
+      <div class="ingr">
+        <span class="tag">Vector search</span>
+        <h3>"Find me things close to 'small furry pet that meows'"</h3>
+        <p>Brings back cat pages even if they never said "kitten." Because the <em>meaning</em> of that phrase sits near the cat embedding.</p>
+      </div>
+    </div>
+    <p style="margin-top:14px; margin-bottom:0;">🧸 <strong>Kid version:</strong> keyword search is like looking for a specific label on a box. Vector search is like asking a friend who actually read every box and can point you to the ones that feel like what you want.</p>
+  </section>
+
+  <!-- AWS -->
+  <section class="card">
+    <div class="glow-bar purple"></div>
+    <span class="eyebrow">On AWS</span>
+    <h2>Where embeddings and vector stores live in the AWS Gen AI world.</h2>
+    <div class="aws-row">
+      <div class="aws-box">
+        <span class="svc">🧠 Amazon Bedrock Knowledge Bases</span>
+        <p>The managed home for this whole pipeline. You bring documents; Bedrock can chunk them, create embeddings with a Bedrock model, store the vectors, and then answer questions by finding the nearest pieces. It's the easiest AWS on-ramp to "make my data searchable by meaning."</p>
+      </div>
+      <div class="aws-box">
+        <span class="svc">🗄️ Vector database options</span>
+        <p>The actual store can live in a few places AWS touches — for example OpenSearch Service with k-NN, or other vector-friendly stores many teams already use with Bedrock. Bedrock Knowledge Bases can plug into a vector store so the embeddings have somewhere to live and be searched.</p>
+      </div>
+    </div>
+    <div class="aws-row">
+      <div class="aws-box">
+        <span class="svc">🧵 Amazon SageMaker</span>
+        <p>When you want full control: pick your own embedding model, your own vector store, your own chunking, your own distance style. More work, more flexibility — the "build the pipeline yourself" route.</p>
+      </div>
+      <div class="aws-box">
+        <span class="svc">📦 Amazon Bedrock / foundation models</span>
+        <p>The same models that power Gen AI can also produce embeddings. That matters because it means the thing that understands your data at query time is the same kind of thing that encoded it in the first place — same world, same "map."</p>
+      </div>
+    </div>
+    <p style="margin:14px 0 0; font-size:1rem;">🧸 <strong>Plain talk:</strong> on AWS, the quick story is Bedrock Knowledge Bases for "I want this to work." SageMaker for "I want to choose every piece." Either way, the idea is the same: embed first, store vectors, search by closeness.</p>
+  </section>
+
+  <!-- WHY COOL -->
+  <section class="card">
+    <div class="glow-bar cyan"></div>
+    <span class="eyebrow">Why it's cool</span>
+    <h2>Three reasons embeddings + vector stores change what AI can do.</h2>
+    <div class="ingredients" style="grid-template-columns: 1fr 1fr 1fr;">
+      <div class="ingr">
+        <span class="tag">🌙 Meaning over keywords</span>
+        <h3>Search by what things are about</h3>
+        <p>Find the right page even when it says it in a totally different way.</p>
+      </div>
+      <div class="ingr cyan">
+        <span class="tag">🔗 The RAG backbone</span>
+        <h3>Give the model the right context</h3>
+        <p>The model answers from your stuff, not just its training memory — because the vector store handed it the nearest pieces.</p>
+      </div>
+      <div class="ingr purple">
+        <span class="tag">⚡ Fast "nearest thing"</span>
+        <h3>Ask "what's like this?" at scale</h3>
+        <p>Out of thousands or millions of things, the store can surface the closest matches quickly.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- SUMMARY -->
+  <section class="card summary">
+    <span class="eyebrow">The whole story in one breath</span>
+    <h2>If you remember one thing, remember this.</h2>
+
+    <div class="formula">
+      <span class="group">
+        your stuff
+        <span class="arrow">→</span>
+        <span class="chunk">embedding</span>
+        <span class="small">(a list of numbers for each thing)</span>
+      </span>
+      <span class="arrow">→</span>
+      <span class="group">
+        <span class="store">vector store</span>
+        <span class="small">(holds the points, finds the near ones)</span>
+      </span>
+      <span class="arrow">→</span>
+      <span class="small">the model answers from the closest things</span>
+    </div>
+
+    <p style="margin:6px 0 16px; color: var(--amber); font-size: 1.2rem; font-weight: 600;">
+      That's <strong style="color:var(--ink);">embeddings + vector stores for AWS Gen AI</strong>. 🎉
+    </p>
+    <p style="margin-bottom:0; font-size: 1rem; color: var(--dim); max-width: 620px; margin-left: auto; margin-right: auto;">
+      Want to try it for real? Start with Amazon Bedrock Knowledge Bases: bring your documents, let AWS embed and store them, then ask questions by meaning instead of by keyword. If you want to pick every piece yourself, build it in Amazon SageMaker.
+    </p>
+  </section>
+
+  <footer>
+    Made with 💛 by Buffy ·
+    <a href="https://aws.amazon.com/bedrock/" target="_blank" rel="noopener">AWS Bedrock</a> ·
+    <a href="https://aws.amazon.com/sagemaker/" target="_blank" rel="noopener">Amazon SageMaker</a>
+  </footer>
+</div>
+</body>
+</html>

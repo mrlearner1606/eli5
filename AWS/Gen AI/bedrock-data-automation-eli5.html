@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🧸 ELI5: AWS Bedrock Data Automation</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Comic Sans MS', 'Segoe UI', sans-serif;
+    background: linear-gradient(180deg, #ffecd2 0%, #fcb69f 50%, #a1c4fd 100%);
+    min-height: 100vh;
+    color: #333;
+    padding: 20px;
+  }
+  .container { max-width: 900px; margin: 0 auto; }
+  h1 {
+    text-align: center;
+    font-size: 2.2em;
+    color: #fff;
+    text-shadow: 2px 2px 6px rgba(0,0,0,0.3);
+    margin-bottom: 10px;
+  }
+  .subtitle {
+    text-align: center;
+    font-size: 1.3em;
+    color: #fff;
+    margin-bottom: 30px;
+    text-shadow: 1px 1px 3px rgba(0,0,0,0.3);
+  }
+  .card {
+    background: #fff;
+    border-radius: 24px;
+    padding: 30px;
+    margin: 25px 0;
+    box-shadow: 0 8px 20px rgba(0,0,0,0.15);
+    border: 4px solid #ffb347;
+  }
+  h2 {
+    font-size: 1.8em;
+    color: #e86a33;
+    margin-bottom: 15px;
+    text-align: center;
+  }
+  p {
+    font-size: 1.2em;
+    line-height: 1.7;
+    margin-bottom: 12px;
+  }
+  .big-emoji {
+    font-size: 4em;
+    text-align: center;
+    margin: 15px 0;
+    animation: bounce 2s infinite;
+  }
+  @keyframes bounce {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-12px); }
+  }
+  .story-box {
+    background: #fff9e6;
+    border-left: 8px solid #ffb347;
+    padding: 18px;
+    border-radius: 12px;
+    margin: 15px 0;
+  }
+  .flow {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    margin: 20px 0;
+  }
+  .flow-step {
+    background: #ffe5cc;
+    border: 3px dashed #e86a33;
+    border-radius: 16px;
+    padding: 14px 24px;
+    font-size: 1.15em;
+    text-align: center;
+    width: 90%;
+  }
+  .arrow { font-size: 2em; color: #e86a33; }
+  .tag {
+    display: inline-block;
+    background: #a1c4fd;
+    color: #fff;
+    padding: 6px 14px;
+    border-radius: 999px;
+    font-size: 1em;
+    margin: 4px;
+  }
+  .why-box {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    justify-content: center;
+    margin-top: 15px;
+  }
+  .why-item {
+    flex: 1 1 200px;
+    background: #e8f8f0;
+    border: 3px solid #4caf50;
+    border-radius: 16px;
+    padding: 16px;
+    text-align: center;
+    font-size: 1.05em;
+  }
+  .why-item .icon { font-size: 2.5em; display: block; margin-bottom: 8px; }
+  footer {
+    text-align: center;
+    color: #fff;
+    font-size: 1em;
+    margin-top: 30px;
+    text-shadow: 1px 1px 2px rgba(0,0,0,0.3);
+  }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <h1>🤖 What is AWS Bedrock Data Automation?</h1>
+  <p class="subtitle">(Explained like you're 5! 🧸)</p>
+
+  <!-- The Problem -->
+  <div class="card">
+    <h2>😵 The Problem: A Giant Messy Toy Box</h2>
+    <div class="big-emoji">📦📄🖼️🎥🎙️</div>
+    <p>Imagine you have a <b>GIANT toy box</b> full of stuff — papers, drawings, videos, and voice recordings. Everyone throws things in. Nothing has labels!</p>
+    <p>You want to find things inside, but it's all <b>messy</b>. 😫</p>
+    <div class="story-box">
+      <p>🧸 <b>Real life:</b> Companies have millions of messy files — receipts 🧾, contracts 📜, videos 🎥, and phone calls 📞. They need to know what's inside them, but reading them all would take <b>forever</b>!</p>
+    </div>
+  </div>
+
+  <!-- The Solution -->
+  <div class="card">
+    <h2>🦸 The Solution: A Magic Sorting Robot</h2>
+    <div class="big-emoji">🤖✨</div>
+    <p><b>Bedrock Data Automation</b> is like a magic robot friend that:</p>
+    <p>1️⃣ You give it the messy stuff (papers, pictures, videos, sounds)</p>
+    <p>2️⃣ It looks at everything carefully with its AI eyes 👀</p>
+    <p>3️⃣ It hands you back a <b>neat, tidy list</b> of what it found!</p>
+    <div class="flow">
+      <div class="flow-step">📥 You drop in messy stuff</div>
+      <div class="arrow">⬇️</div>
+      <div class="flow-step">🤖 The robot reads it all (even videos &amp; sounds!)</div>
+      <div class="arrow">⬇️</div>
+      <div class="flow-step">📋 You get a neat answer: "Here's what's inside!"</div>
+    </div>
+  </div>
+
+  <!-- How it works -->
+  <div class="card">
+    <h2>🎡 How Does It Work?</h2>
+    <p>Think of it like a <b>factory conveyor belt</b> for information:</p>
+    <div class="flow">
+      <div class="flow-step">🪣 <b>Step 1:</b> Put files in a big digital bucket (called S3 🪣)</div>
+      <div class="arrow">⬇️</div>
+      <div class="flow-step">🤖 <b>Step 2:</b> Tell the robot "go!" — it starts reading everything</div>
+      <div class="arrow">⬇️</div>
+      <div class="flow-step">🧠 <b>Step 3:</b> Smart AI brains figure out what each thing means</div>
+      <div class="arrow">⬇️</div>
+      <div class="flow-step">🎁 <b>Step 4:</b> You get neat answers like: "This is an invoice for $50!" 💵</div>
+    </div>
+    <p style="text-align:center; margin-top:15px;">The best part? You can ask for <b>exactly</b> the info you want — like saying "only tell me the prices!" 🛒</p>
+  </div>
+
+  <!-- What it can read -->
+  <div class="card">
+    <h2>👀 What Can It Read?</h2>
+    <p>Almost anything messy!</p>
+    <div style="text-align:center; margin:15px 0;">
+      <span class="tag">📄 Documents</span>
+      <span class="tag">🧾 Receipts &amp; invoices</span>
+      <span class="tag">🖼️ Pictures</span>
+      <span class="tag">🎥 Videos</span>
+      <span class="tag">🎙️ Audio &amp; voice</span>
+    </div>
+    <div class="story-box">
+      <p>🧸 It's like a friend who can read a book 📖, look at a drawing 🎨, watch a movie 🎬, AND listen to a song 🎵 — then tell you everything about all of them at once!</p>
+    </div>
+  </div>
+
+  <!-- Why it's cool -->
+  <div class="card">
+    <h2>🌟 Why Is It Cool?</h2>
+    <div class="why-box">
+      <div class="why-item"><span class="icon">⚡</span><b>Super Fast</b><br>Reads millions of files way faster than any human</div>
+      <div class="why-item"><span class="icon">🎯</span><b>Tells the Truth</b><br>Shows you WHERE it found each answer (with receipts!)</div>
+      <div class="why-item"><span class="icon">💰</span><b>Saves Money</b><br>No need to hire a giant team to read files</div>
+      <div class="why-item"><span class="icon">🔌</span><b>One Simple Button</b><br>One API for everything — no juggling many tools</div>
+    </div>
+  </div>
+
+  <!-- Real world example -->
+  <div class="card">
+    <h2>🌍 Who Uses This In Real Life?</h2>
+    <div class="big-emoji">🏥🏦🛒</div>
+    <p>🏥 <b>Hospitals:</b> Read doctors' messy handwriting notes and turn them into neat records</p>
+    <p>🏦 <b>Banks:</b> Read loan forms and check them in seconds, not weeks</p>
+    <p>🛒 <b>Shops:</b> Look at thousands of product photos and know what each one shows</p>
+    <p>🎥 <b>Movie companies:</b> Watch videos and find every scene with a dog in it 🐶</p>
+  </div>
+
+  <!-- Summary -->
+  <div class="card">
+    <h2>🎈 The Whole Story In One Breath</h2>
+    <p style="text-align:center; font-size:1.35em;">
+      Messy files go in 📦 → The magic AI robot reads them 🤖 → Neat answers come out 🎁
+    </p>
+    <p style="text-align:center; margin-top:15px;">
+      That's <b>AWS Bedrock Data Automation</b>! 🎉
+    </p>
+  </div>
+
+  <footer>Made with 💛 by Buffy · Learn more: aws.amazon.com/bedrock/bda</footer>
+</div>
+</body>
+</html>

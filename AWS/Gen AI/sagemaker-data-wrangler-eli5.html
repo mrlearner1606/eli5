@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🧸 ELI5: Amazon SageMaker Data Wrangler</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Comic Sans MS', 'Segoe UI', sans-serif;
+    background: linear-gradient(180deg, #dff6ff 0%, #b8e1ff 48%, #d8c7ff 100%);
+    min-height: 100vh;
+    color: #27324a;
+    padding: 20px;
+  }
+  .container { max-width: 920px; margin: 0 auto; }
+  h1 {
+    text-align: center;
+    font-size: 2.25em;
+    color: #fff;
+    text-shadow: 2px 2px 6px rgba(33, 52, 100, 0.35);
+    margin-bottom: 10px;
+  }
+  .subtitle {
+    text-align: center;
+    font-size: 1.3em;
+    color: #fff;
+    margin-bottom: 30px;
+    text-shadow: 1px 1px 3px rgba(33, 52, 100, 0.35);
+  }
+  .card {
+    background: #fff;
+    border-radius: 24px;
+    padding: 30px;
+    margin: 25px 0;
+    box-shadow: 0 8px 20px rgba(38, 54, 100, 0.15);
+    border: 4px solid #7b8cff;
+  }
+  h2 {
+    font-size: 1.8em;
+    color: #5365d8;
+    margin-bottom: 15px;
+    text-align: center;
+  }
+  p {
+    font-size: 1.18em;
+    line-height: 1.7;
+    margin-bottom: 12px;
+  }
+  .big-emoji {
+    font-size: 4em;
+    text-align: center;
+    margin: 15px 0;
+    animation: bounce 2s infinite;
+  }
+  @keyframes bounce {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-12px); }
+  }
+  .story-box {
+    background: #f0f4ff;
+    border-left: 8px solid #7b8cff;
+    padding: 18px;
+    border-radius: 12px;
+    margin: 15px 0;
+  }
+  .flow {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    margin: 20px 0;
+  }
+  .flow-step {
+    background: #eaf7ff;
+    border: 3px dashed #5db7e8;
+    border-radius: 16px;
+    padding: 14px 24px;
+    font-size: 1.12em;
+    text-align: center;
+    width: 92%;
+  }
+  .arrow { font-size: 2em; color: #5365d8; }
+  .tag {
+    display: inline-block;
+    background: #8b7cf6;
+    color: #fff;
+    padding: 6px 14px;
+    border-radius: 999px;
+    font-size: 1em;
+    margin: 4px;
+  }
+  .why-box {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    justify-content: center;
+    margin-top: 15px;
+  }
+  .why-item {
+    flex: 1 1 200px;
+    background: #effcf6;
+    border: 3px solid #4fbd84;
+    border-radius: 16px;
+    padding: 16px;
+    text-align: center;
+    font-size: 1.05em;
+  }
+  .why-item .icon { font-size: 2.5em; display: block; margin-bottom: 8px; }
+  .comparison {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 14px;
+    margin-top: 18px;
+  }
+  .comparison > div {
+    border-radius: 16px;
+    padding: 18px;
+    text-align: center;
+  }
+  .before { background: #fff1f1; border: 3px solid #ee8585; }
+  .after { background: #effcf6; border: 3px solid #4fbd84; }
+  .mini-title { font-size: 1.25em; font-weight: bold; margin-bottom: 8px; }
+  code {
+    background: #eef0ff;
+    color: #4654b8;
+    padding: 3px 7px;
+    border-radius: 6px;
+    font-family: Consolas, monospace;
+  }
+  footer {
+    text-align: center;
+    color: #fff;
+    font-size: 1em;
+    margin-top: 30px;
+    text-shadow: 1px 1px 2px rgba(33, 52, 100, 0.35);
+  }
+  @media (max-width: 600px) {
+    body { padding: 12px; }
+    h1 { font-size: 1.8em; }
+    .card { padding: 21px; }
+    p { font-size: 1.08em; }
+  }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <h1>🧺 What Is SageMaker Data Wrangler?</h1>
+  <p class="subtitle">A kid-friendly explanation of AWS's data-cleaning helper 🧸</p>
+
+  <div class="card">
+    <h2>😵 The Problem: A Messy Box of Ingredients</h2>
+    <div class="big-emoji">📊🧾🧹😫</div>
+    <p>Imagine you want to bake a cake. But your ingredients are in a messy box:</p>
+    <p>🥚 Some eggs are missing, 🧂 some labels are confusing, and 🍎 some apples are written in different ways.</p>
+    <div class="story-box">
+      <p>🧸 <b>Real life:</b> Machine-learning computers learn from data. If the data is messy, incomplete, or written strangely, the computer can learn the wrong lesson.</p>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>🦸 The Solution: A Friendly Data Kitchen</h2>
+    <div class="big-emoji">👩‍🍳📋✨</div>
+    <p><b>Amazon SageMaker Data Wrangler</b> is a visual tool that helps people prepare data before teaching a machine-learning model.</p>
+    <p>It is like a kitchen where you can see your ingredients, clean them, and make them ready to cook — without writing lots of code.</p>
+    <div class="comparison">
+      <div class="before">
+        <div class="mini-title">Before 🌀</div>
+        Messy data<br>Missing values<br>Different spellings
+      </div>
+      <div class="after">
+        <div class="mini-title">After ✅</div>
+        Clean data<br>Useful columns<br>Ready for learning
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>🎡 How Does It Work?</h2>
+    <div class="flow">
+      <div class="flow-step">📥 <b>1. Bring in data:</b> Get information from places like Amazon S3, databases, or other data sources.</div>
+      <div class="arrow">⬇️</div>
+      <div class="flow-step">🔍 <b>2. Peek inside:</b> Look at charts and summaries to spot patterns, gaps, and odd numbers.</div>
+      <div class="arrow">⬇️</div>
+      <div class="flow-step">🧹 <b>3. Clean it:</b> Fix missing pieces, remove duplicates, change formats, or make helpful new columns.</div>
+      <div class="arrow">⬇️</div>
+      <div class="flow-step">🚦 <b>4. Check the recipe:</b> See the steps you used so you can repeat them later.</div>
+      <div class="arrow">⬇️</div>
+      <div class="flow-step">🎁 <b>5. Hand it over:</b> Send the prepared data to train a machine-learning model.</div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>🧰 What Kind of Cleaning Can It Do?</h2>
+    <p>Think of each cleaning action as a tool in a big toolbox:</p>
+    <div style="text-align:center; margin:15px 0;">
+      <span class="tag">🕳️ Fill missing values</span>
+      <span class="tag">🗑️ Remove duplicates</span>
+      <span class="tag">🔤 Fix data types</span>
+      <span class="tag">📏 Scale numbers</span>
+      <span class="tag">✂️ Choose columns</span>
+      <span class="tag">➕ Create new features</span>
+    </div>
+    <div class="story-box">
+      <p>For example, if one row says <code>NY</code> and another says <code>New York</code>, Data Wrangler can help make them match. That way, the computer knows they mean the same place.</p>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>👀 Why Look at Pictures and Charts?</h2>
+    <div class="big-emoji">📈🧐</div>
+    <p>Sometimes a table of numbers hides a problem. A chart can make it easy to see:</p>
+    <p>🔴 A number that is much too big or too small</p>
+    <p>🕳️ A column with lots of empty spaces</p>
+    <p>🔗 Two columns that are almost telling the same story</p>
+    <p>📚 A group of examples that appears far more often than the others</p>
+    <p>Data Wrangler gives you visual clues before you trust the data.</p>
+  </div>
+
+  <div class="card">
+    <h2>🌟 Why Is It Useful?</h2>
+    <div class="why-box">
+      <div class="why-item"><span class="icon">👀</span><b>Easy to see</b><br>Explore data with a visual interface instead of guessing.</div>
+      <div class="why-item"><span class="icon">🧹</span><b>Less mess</b><br>Prepare information so models can learn more reliably.</div>
+      <div class="why-item"><span class="icon">🔁</span><b>Repeatable</b><br>Remember the cleaning steps and use them again.</div>
+      <div class="why-item"><span class="icon">⚡</span><b>Saves time</b><br>Do common data-preparation jobs faster.</div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>🧠 What It Does NOT Do</h2>
+    <p>Data Wrangler does not magically make every machine-learning decision for you.</p>
+    <p>It is the helpful preparation step: it gets the ingredients ready. You still choose the right data, decide which cleaning makes sense, and train the model afterward.</p>
+    <div class="story-box">
+      <p>🍰 <b>Simple recipe:</b> Data Wrangler prepares the ingredients → SageMaker trains the learner → Your finished model makes predictions.</p>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>🎈 The Whole Story in One Breath</h2>
+    <p style="text-align:center; font-size:1.35em;">
+      Messy data comes in 📦 → You inspect and clean it 🧹 → A tidy data recipe is saved 📋 → A machine-learning model learns better 🧠
+    </p>
+    <p style="text-align:center; margin-top:15px;">
+      That is <b>Amazon SageMaker Data Wrangler</b>! 🎉
+    </p>
+  </div>
+
+  <footer>Made with 💛 by Buffy · AWS SageMaker Data Wrangler</footer>
+</div>
+</body>
+</html>
