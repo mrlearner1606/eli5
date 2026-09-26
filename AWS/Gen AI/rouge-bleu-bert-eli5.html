@@ -1,0 +1,453 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ELI5: ROUGE, BLEU &amp; BERT — two report cards and a bookworm</title>
+<meta name="description" content="ROUGE, BLEU and BERT explained simply, for AWS Gen AI developers.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Nunito:wght@400;600;800&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --paper: #F4F7FB;
+    --ink: #182742;
+    --slate: #4A6FA5;
+    --aws: #FF9900;
+    --marker: #FFD447;
+    --white: #FFFFFF;
+    --line: #D8E0EC;
+    --good: #EAF7F0;
+    --goodLine: #4CBD84;
+    --bad: #FFF1E8;
+    --badLine: #F5A25D;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Nunito', 'Segoe UI', sans-serif;
+    background-color: var(--paper);
+    background-image: radial-gradient(circle, #D5DDE9 1px, transparent 1.5px);
+    background-size: 26px 26px;
+    color: var(--ink);
+    padding: 32px 16px 64px;
+    line-height: 1.6;
+  }
+  .page { max-width: 920px; margin: 0 auto; }
+
+  .eyebrow {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.78rem;
+    font-weight: 600;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--aws);
+    display: block;
+    margin-bottom: 10px;
+  }
+  h1, h2 { font-family: 'Space Grotesk', sans-serif; font-weight: 700; line-height: 1.15; }
+  h1 { font-size: clamp(2rem, 5.5vw, 3.4rem); }
+  h2 { font-size: clamp(1.45rem, 3.5vw, 2rem); margin-bottom: 14px; }
+  p { font-size: 1.12rem; margin-bottom: 12px; }
+  strong { font-weight: 800; }
+  em { font-style: normal; background: var(--marker); padding: 0 4px; }
+
+  code {
+    font-family: 'IBM Plex Mono', monospace;
+    background: #EDF1F8;
+    border: 1px solid var(--line);
+    padding: 2px 7px;
+    border-radius: 6px;
+    font-size: 0.9em;
+  }
+
+  /* ---------- Hero ---------- */
+  .hero { text-align: center; padding: 18px 0 8px; }
+  .hero-sub { font-size: 1.25rem; color: var(--slate); font-weight: 600; }
+  .hero-sub strong { color: var(--ink); }
+
+  .emblem {
+    margin: 34px auto 26px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: clamp(10px, 2.5vw, 18px);
+    flex-wrap: wrap;
+  }
+  .chip {
+    background: var(--white);
+    border: 2.5px solid var(--ink);
+    border-radius: 14px;
+    box-shadow: 5px 5px 0 rgba(24, 39, 66, 0.12);
+    padding: 14px 18px;
+    text-align: center;
+    min-width: 128px;
+  }
+  .chip .big { font-size: 2rem; display: block; line-height: 1; }
+  .chip .lbl {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.64rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--slate);
+    display: block;
+    margin-top: 6px;
+  }
+  .chip.metric { background: var(--marker); border-style: dashed; transform: rotate(-3deg); }
+  .chip.model { background: #EAF2FF; }
+  .opsign { font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 1.7rem; color: var(--slate); }
+  .hat-badge {
+    font-family: 'Space Grotesk', sans-serif;
+    font-weight: 700;
+    font-size: 1.05rem;
+    background: var(--ink);
+    color: #fff;
+    padding: 12px 18px;
+    border-radius: 999px;
+  }
+
+  /* ---------- Cards / notebook ---------- */
+  .card {
+    background: var(--white);
+    border: 2px solid var(--ink);
+    border-radius: 14px;
+    box-shadow: 6px 6px 0 rgba(24, 39, 66, 0.1);
+    padding: clamp(22px, 4vw, 34px);
+    margin: 34px 0;
+    position: relative;
+  }
+  .tape {
+    position: absolute;
+    top: -13px;
+    left: 50%;
+    transform: translateX(-50%) rotate(-2deg);
+    width: 90px;
+    height: 26px;
+    background: rgba(255, 212, 71, 0.9);
+    border-left: 2px solid var(--ink);
+    border-right: 2px solid var(--ink);
+  }
+  .tape.orange { background: rgba(255, 153, 0, 0.55); }
+
+  /* ---------- Flow ---------- */
+  .flow { display: flex; flex-direction: column; gap: 10px; margin-top: 16px; }
+  .flow-step {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    background: #F8FAFD;
+    border: 2px solid var(--line);
+    border-left: 6px solid var(--aws);
+    border-radius: 12px;
+    padding: 14px 18px;
+    font-size: 1.06rem;
+  }
+  .num { font-family: 'IBM Plex Mono', monospace; font-weight: 600; color: var(--aws); min-width: 34px; }
+
+  /* ---------- Idea grid ---------- */
+  .why-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 14px; margin-top: 18px; }
+  .why-item {
+    background: #F8FAFD;
+    border: 2px solid var(--line);
+    border-top: 5px solid var(--aws);
+    border-radius: 12px;
+    padding: 16px;
+    font-size: 0.98rem;
+  }
+  .why-item .icon { font-size: 1.9rem; display: block; margin-bottom: 8px; }
+  .why-item b { display: block; margin-bottom: 4px; font-size: 1.05rem; }
+
+  /* ---------- Compare ---------- */
+  .compare { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 18px; }
+  .cmp { border-radius: 12px; padding: 20px; font-size: 1.02rem; }
+  .cmp-title { font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 1.15rem; margin-bottom: 8px; display: block; }
+  .cmp.old { background: var(--bad); border: 2px solid var(--badLine); }
+  .cmp.new { background: var(--good); border: 2px solid var(--goodLine); }
+  .cmp ul { list-style: none; }
+  .cmp li { padding: 4px 0; }
+
+  /* ---------- Table ---------- */
+  .table-wrap { overflow-x: auto; margin-top: 18px; }
+  table { width: 100%; border-collapse: collapse; font-size: 1rem; min-width: 520px; }
+  th, td { text-align: left; padding: 12px 14px; border-bottom: 2px solid var(--line); vertical-align: top; }
+  thead th {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.72rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--slate);
+    border-bottom: 2.5px solid var(--ink);
+  }
+  tbody tr:last-child td { border-bottom: none; }
+  td:first-child { font-weight: 800; white-space: nowrap; }
+
+  /* ---------- AWS ---------- */
+  .aws-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 18px; }
+  .aws-card { background: #F8FAFD; border: 2px solid var(--line); border-radius: 12px; padding: 20px; }
+  .aws-card .svc {
+    font-family: 'IBM Plex Mono', monospace;
+    font-weight: 600;
+    font-size: 0.9rem;
+    color: var(--aws);
+    letter-spacing: 0.04em;
+    display: block;
+    margin-bottom: 8px;
+  }
+  .aws-card p { font-size: 1rem; margin-bottom: 0; }
+
+  /* ---------- Gotchas ---------- */
+  .gotchas { list-style: none; margin-top: 14px; }
+  .gotchas li {
+    background: #FFF8EC;
+    border: 2px solid var(--badLine);
+    border-radius: 12px;
+    padding: 14px 18px;
+    margin-bottom: 10px;
+    font-size: 1.02rem;
+  }
+
+  /* ---------- TL;DR ---------- */
+  .tldr { list-style: none; margin-top: 12px; }
+  .tldr li { padding: 8px 0 8px 34px; position: relative; font-size: 1.08rem; }
+  .tldr li::before {
+    content: "✔";
+    position: absolute;
+    left: 0;
+    top: 8px;
+    color: var(--goodLine);
+    font-weight: 800;
+  }
+
+  /* ---------- Summary ---------- */
+  .summary-card { text-align: center; }
+  .summary-line {
+    font-family: 'Space Grotesk', sans-serif;
+    font-weight: 700;
+    font-size: clamp(1.25rem, 3vw, 1.6rem);
+    line-height: 1.4;
+    margin: 10px 0;
+  }
+  .summary-line .plus { color: var(--slate); padding: 0 6px; }
+  .summary-line .equals { color: var(--aws); padding: 0 6px; }
+
+  footer {
+    text-align: center;
+    color: var(--slate);
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.8rem;
+    margin-top: 40px;
+  }
+  footer a { color: var(--slate); }
+
+  a:focus-visible { outline: 3px solid var(--aws); outline-offset: 2px; }
+  @media (max-width: 640px) {
+    .compare, .aws-grid { grid-template-columns: 1fr; }
+    .emblem { gap: 18px; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .chip.metric { transform: none; }
+    * { scroll-behavior: auto; }
+  }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <!-- HERO -->
+  <header class="hero">
+    <span class="eyebrow">AWS Gen AI · Explained like you're 5</span>
+    <h1>Two <em>report cards</em>,<br>one clever <em>bookworm</em>.</h1>
+    <p class="hero-sub">That's <strong>ROUGE</strong>, <strong>BLEU</strong>, and <strong>BERT</strong> in a nutshell.</p>
+
+    <div class="emblem" role="img" aria-label="ROUGE and BLEU are graders, BERT is a reader">
+      <div class="chip metric"><span class="big">📝</span><span class="lbl">ROUGE</span></div>
+      <div class="chip metric"><span class="big">🌍</span><span class="lbl">BLEU</span></div>
+      <div class="opsign">vs</div>
+      <div class="chip model"><span class="big">📖</span><span class="lbl">BERT</span></div>
+    </div>
+  </header>
+
+  <!-- THE IDEA -->
+  <section class="card">
+    <div class="tape"></div>
+    <span class="eyebrow">The idea</span>
+    <h2>Two graders and a reader — they're not the same kind of thing.</h2>
+    <p>People lump these three names together, but they do different jobs. <strong>ROUGE</strong> and <strong>BLEU</strong> are <em>scorecards</em>: little rulers that compare a machine's text against a human's "correct" text and hand back a number. <strong>BERT</strong> is a <em>model</em>: a machine that actually reads text and understands it.</p>
+    <p>So imagine a classroom. The <strong>students</strong> are AI models. <strong>ROUGE and BLEU</strong> are the two harsh teachers marking the essays. <strong>BERT</strong> is that one brilliant student who read every book in the library — and who, funnily enough, later gets hired to help mark the essays too.</p>
+    <p style="margin-bottom:0;">🧸 <strong>In one breath:</strong> ROUGE and BLEU score text by counting matching words; BERT understands text by turning words into meanings.</p>
+  </section>
+
+  <!-- WHY IT EXISTS -->
+  <section class="card">
+    <div class="tape orange"></div>
+    <span class="eyebrow">Why they exist</span>
+    <h2>Grading AI text by hand is slow and expensive.</h2>
+    <p>If you build a summarizer or a translator, how do you know it's any good? You could pay a human to read every single output — but that's slow, costly, and impossible to run on every code change.</p>
+    <p>So we use <strong>automatic metrics</strong>: give the machine a <strong>reference</strong> (the "gold" answer a human wrote), compare the machine's output to it, and produce a number between 0 and 1. Cheap, instant, repeatable. That number is what ROUGE and BLEU give you.</p>
+  </section>
+
+  <!-- BLEU -->
+  <section class="card">
+    <div class="tape"></div>
+    <span class="eyebrow">Grader #1</span>
+    <h2>BLEU — the translation checker 📏</h2>
+    <p><strong>BLEU</strong> stands for <em>Bilingual Evaluation Understudy</em>. It was built to grade <strong>machine translation</strong>: did the translation use the same little word chunks as the human reference?</p>
+    <div class="flow">
+      <div class="flow-step"><span class="num">01</span> Chop both texts into <strong>n-grams</strong> — runs of 1, 2, 3, 4 words (e.g. "the cat sat").</div>
+      <div class="flow-step"><span class="num">02</span> Count how many of the machine's chunks also appear in the reference — that's <strong>precision</strong>: "of what I said, how much was right?"</div>
+      <div class="flow-step"><span class="num">03</span> Add a <strong>brevity penalty</strong>: a short translation that only nails a few words doesn't get an easy perfect score.</div>
+    </div>
+    <p style="margin-top:18px; margin-bottom:0;">🧸 <strong>Analogy:</strong> BLEU is a picky editor asking, <em>"How much of what you wrote was actually correct?"</em> It's a <strong>precision</strong> metric.</p>
+  </section>
+
+  <!-- ROUGE -->
+  <section class="card">
+    <div class="tape orange"></div>
+    <span class="eyebrow">Grader #2</span>
+    <h2>ROUGE — the summary checker 📝</h2>
+    <p><strong>ROUGE</strong> stands for <em>Recall-Oriented Understudy for Gisting Evaluation</em>. It was built to grade <strong>summaries</strong>: did the summary manage to capture the important bits of the original?</p>
+    <div class="why-grid">
+      <div class="why-item"><span class="icon">🧱</span><b>ROUGE-N</b>Counts overlapping n-grams between the summary and the reference.</div>
+      <div class="why-item"><span class="icon">🔗</span><b>ROUGE-L</b>Takes the longest common subsequence — matching words in the right order, gaps allowed.</div>
+      <div class="why-item"><span class="icon">🎯</span><b>The mindset</b>Recall: "Of everything I <em>should</em> have said, how much did I say?"</div>
+    </div>
+    <p style="margin-top:18px; margin-bottom:0;">🧸 <strong>Analogy:</strong> ROUGE is a teacher asking, <em>"Did you cover all the key points?"</em> It's a <strong>recall</strong> metric — the mirror image of BLEU.</p>
+  </section>
+
+  <!-- BERT -->
+  <section class="card">
+    <div class="tape"></div>
+    <span class="eyebrow">The reader</span>
+    <h2>BERT — the bookworm that understands 📖</h2>
+    <p><strong>BERT</strong> stands for <em>Bidirectional Encoder Representations from Transformers</em>, from Google (2018). It isn't a grader — it's an <strong>encoder-only</strong> transformer. Its one talent: read a word <strong>in both directions at once</strong>, so it understands each word from the words on its left <em>and</em> its right.</p>
+    <div class="flow">
+      <div class="flow-step"><span class="num">01</span> <strong>Pretraining game:</strong> hide random words and make BERT guess them — <em>masked language modeling</em>. That's how it learns meaning.</div>
+      <div class="flow-step"><span class="num">02</span> <strong>Fine-tune</strong> it on your task: classify a review, tag names, answer a question, or fetch similar text.</div>
+      <div class="flow-step"><span class="num">03</span> <strong>Or just use its brain</strong> as an <em>embedding</em> — turning sentences into number-vectors for search and retrieval.</div>
+    </div>
+    <p style="margin-top:18px;">Its sibling <strong>RoBERTa</strong> ("robustly optimized BERT") is the same recipe trained harder: more data, bigger batches, no next-sentence-prediction game, and fresh masking each step — which usually reads a bit better.</p>
+    <p style="margin-bottom:0;">🧸 <strong>Analogy:</strong> BERT is the student who read every book. It doesn't hand out scores — it <em>understands</em>. Compare it to GPT-style models, which are decoder-only and built to <em>write new</em> text rather than analyze existing text.</p>
+  </section>
+
+  <!-- COMPARE -->
+  <section class="card">
+    <div class="tape orange"></div>
+    <span class="eyebrow">Side by side</span>
+    <h2>The three at a glance</h2>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th></th><th>ROUGE</th><th>BLEU</th><th>BERT</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>What it is</td><td>A metric</td><td>A metric</td><td>A model</td></tr>
+          <tr><td>Built for</td><td>Summaries</td><td>Translations</td><td>Understanding text</td></tr>
+          <tr><td>Biased toward</td><td>Recall (coverage)</td><td>Precision (correctness)</td><td>Semantic meaning</td></tr>
+          <tr><td>How it measures</td><td>Overlapping n-grams + longest common subsequence</td><td>Overlapping n-grams + brevity penalty</td><td>Contextual embeddings per word</td></tr>
+          <tr><td>Output</td><td>A score (0–1)</td><td>A score (0–1)</td><td>Vectors, labels, answers</td></tr>
+          <tr><td>Needs a reference?</td><td>Yes</td><td>Yes</td><td>No — it just reads</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- BRIDGE -->
+  <section class="card">
+    <div class="tape"></div>
+    <span class="eyebrow">Where they meet</span>
+    <h2>BERTScore — using the reader as a grader 🤝</h2>
+    <p>Here's the clever part. ROUGE and BLEU only count <em>matching words</em>, so they punish a correct answer that uses different words — "happy" vs "glad" scores zero even though it means the same. And BERT is great at meaning.</p>
+    <p>So people put the two together: <strong>BERTScore</strong> uses a BERT-style model to check whether the machine's words <em>mean</em> the same as the reference words, using embeddings instead of exact matches. In other words, a report card that finally understands synonyms.</p>
+    <div class="compare">
+      <div class="cmp old">
+        <span class="cmp-title">🔤 Counting metrics (ROUGE, BLEU)</span>
+        <ul>
+          <li>⚡ Fast, cheap, reproducible</li>
+          <li>🔁 Great as a quick regression check</li>
+          <li>🚫 Miss paraphrases entirely</li>
+          <li>🧮 Easy to compare across papers</li>
+        </ul>
+      </div>
+      <div class="cmp new">
+        <span class="cmp-title">🧠 Embedding metrics (BERTScore)</span>
+        <ul>
+          <li>💡 Rewards meaning, not just wording</li>
+          <li>📖 Handles synonyms and rephrasing</li>
+          <li>🐢 Slower — it runs a model to score</li>
+          <li>🧭 Closer to how a human would judge</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- ON AWS -->
+  <section class="card">
+    <div class="tape orange"></div>
+    <span class="eyebrow">On AWS</span>
+    <h2>Where you actually touch these as an AWS Gen AI developer</h2>
+    <div class="aws-grid">
+      <div class="aws-card">
+        <span class="svc">📊 Amazon Bedrock Model Evaluation</span>
+        <p>AWS can grade your model automatically against reference answers, with built-in metrics and LLM-as-a-judge scoring — so you don't hand-code ROUGE/BLEU yourself. Check the current metric list for your task, since it evolves.</p>
+      </div>
+      <div class="aws-card">
+        <span class="svc">🧠 Embeddings &amp; Knowledge Bases</span>
+        <p>BERT-style <strong>encoders</strong> are the engine behind embeddings — Amazon Titan and other embedding models in Bedrock turn text into vectors for retrieval and semantic search.</p>
+      </div>
+      <div class="aws-card">
+        <span class="svc">🧪 Amazon SageMaker</span>
+        <p>Host and fine-tune BERT-family models yourself using the Hugging Face deep learning containers, or run summarization/translation jobs and evaluate their output with ROUGE and BLEU.</p>
+      </div>
+      <div class="aws-card">
+        <span class="svc">🏷️ Amazon Comprehend</span>
+        <p>A managed NLP service for classification, entities, and sentiment — the kind of "understanding" task that BERT-family encoders are built for, without you running the model.</p>
+      </div>
+    </div>
+    <p style="margin:16px 0 0; font-size:1rem;">🧸 <strong>Plain talk:</strong> your <em>encoder</em> (BERT-style) understands and searches; your <em>generator</em> writes; and ROUGE/BLEU/Bedrock evaluations are the report cards that tell you if the writing was any good.</p>
+  </section>
+
+  <!-- GOTCHAS -->
+  <section class="card">
+    <div class="tape"></div>
+    <span class="eyebrow">Fine print</span>
+    <h2>Gotchas worth knowing</h2>
+    <ul class="gotchas">
+      <li>⚠️ <strong>A high score isn't "good writing".</strong> ROUGE and BLEU only see matching words — a fluent, correct answer that paraphrases can score poorly. Never treat them as the whole truth.</li>
+      <li>🧮 <strong>They need a reference.</strong> No gold answer, no score. For open-ended generation you often can't use them at all.</li>
+      <li>⚖️ <strong>Precision vs recall.</strong> Roughly: BLEU leans precision (did you say true things?), ROUGE leans recall (did you cover the right things?). Report the right one for the task.</li>
+      <li>🔤 <strong>Tokenization changes the number.</strong> Different BLEU implementations (like SacreBLEU) can give different scores — always state which one you used.</li>
+      <li>📖 <strong>BERT is an encoder, not a chatbot.</strong> Its fashion is understanding, not generating — that's the decoder-only family (GPT-style).</li>
+      <li>🧬 <strong>BERT has siblings.</strong> RoBERTa, DistilBERT, and friends all tweak the recipe; pick by accuracy, size, and latency.</li>
+      <li>💸 <strong>Embedding models cost money too.</strong> On Bedrock or SageMaker, every embedding and every fine-tune is compute you pay for — batch and cache where you can.</li>
+    </ul>
+  </section>
+
+  <!-- TL;DR -->
+  <section class="card">
+    <div class="tape orange"></div>
+    <span class="eyebrow">TL;DR</span>
+    <h2>The whole thing in six lines</h2>
+    <ul class="tldr">
+      <li><strong>BLEU</strong> = a precision scorecard for <strong>translation</strong> (n-gram matches + brevity penalty).</li>
+      <li><strong>ROUGE</strong> = a recall scorecard for <strong>summaries</strong> (ROUGE-N, ROUGE-L via longest common subsequence).</li>
+      <li><strong>BERT</strong> = an encoder-only model that <strong>understands</strong> text by reading both directions at once.</li>
+      <li><strong>RoBERTa</strong> = BERT trained harder and usually a bit better.</li>
+      <li><strong>BERTScore</strong> bridges them: use BERT to grade meaning, not just matching words.</li>
+      <li>On AWS, you meet these via <strong>Bedrock Model Evaluation</strong>, embeddings/Knowledge Bases, <strong>SageMaker</strong>, and <strong>Comprehend</strong>.</li>
+    </ul>
+  </section>
+
+  <!-- SUMMARY -->
+  <section class="card summary-card">
+    <div class="tape"></div>
+    <span class="eyebrow">The whole story in one breath</span>
+    <div class="summary-line">Two scorecards<span class="plus">+</span>one reader who understands<span class="equals">=</span>ROUGE, BLEU &amp; BERT</div>
+    <p style="margin:6px 0 18px; color: var(--slate); font-size: 1.25rem; font-weight: 600;">
+      Number-checkers for text, and the encoder that knows what it means. 🎉
+    </p>
+  </section>
+
+  <footer>Made with 💛 by Buffy · <a href="https://docs.aws.amazon.com/bedrock/latest/userguide/model-evaluation-metrics.html" target="_blank" rel="noopener">Bedrock model evaluation metrics · aws.amazon.com</a></footer>
+</div>
+</body>
+</html>
