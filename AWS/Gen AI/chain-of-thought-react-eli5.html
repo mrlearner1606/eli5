@@ -1,0 +1,590 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ELI5: Chain of Thought &amp; ReAct for AWS Gen AI Developers</title>
+<meta name="description" content="Chain of Thought and ReAct explained like you're five — from an AWS Generative AI Developer perspective.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=Public+Sans:wght@400;500;600;700&family=Fira+Code:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#F5F3FB;
+    --bg2:#ECE8F8;
+    --panel:#FFFFFF;
+    --ink:#241E3D;
+    --dim:#5C5478;
+    --violet:#6C4BF4;
+    --violet-soft:#EDE7FF;
+    --teal:#0FA98E;
+    --teal-soft:#E1F7F1;
+    --amber:#E08A00;
+    --amber-soft:#FDF1DA;
+    --rose:#D9457A;
+    --line:#DCD6EE;
+    --mono:'Fira Code',monospace;
+    --radius:18px;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{
+    font-family:'Public Sans',system-ui,sans-serif;
+    background:
+      radial-gradient(circle at 12% 4%, rgba(108,75,244,.10), transparent 42%),
+      radial-gradient(circle at 92% 30%, rgba(15,169,142,.09), transparent 40%),
+      var(--bg);
+    color:var(--ink);
+    line-height:1.65;
+    -webkit-font-smoothing:antialiased;
+    overflow-x:hidden;
+  }
+  .wrap{max-width:960px;margin:0 auto;padding:0 20px 80px;}
+
+  /* ---------- Nav ---------- */
+  nav{
+    position:sticky;top:0;z-index:50;
+    backdrop-filter:blur(12px);
+    background:rgba(245,243,251,.82);
+    border-bottom:1px solid var(--line);
+  }
+  nav .nav-inner{
+    max-width:960px;margin:0 auto;padding:10px 20px;
+    display:flex;align-items:center;gap:14px;overflow-x:auto;
+    scrollbar-width:none;
+  }
+  nav .nav-inner::-webkit-scrollbar{display:none;}
+  nav .brand{
+    font-family:var(--mono);font-size:.72rem;font-weight:600;
+    letter-spacing:.12em;text-transform:uppercase;color:var(--violet);
+    white-space:nowrap;padding-right:12px;border-right:1px solid var(--line);
+  }
+  nav a{
+    font-family:var(--mono);font-size:.72rem;letter-spacing:.06em;
+    text-transform:uppercase;color:var(--dim);text-decoration:none;
+    white-space:nowrap;padding:4px 2px;border-bottom:2px solid transparent;
+    transition:color .18s,border-color .18s;
+  }
+  nav a:hover{color:var(--violet);border-color:var(--violet);}
+
+  /* ---------- Hero ---------- */
+  header.hero{padding:64px 0 20px;text-align:center;position:relative;}
+  .kicker{
+    display:inline-block;font-family:var(--mono);font-size:.7rem;font-weight:600;
+    letter-spacing:.2em;text-transform:uppercase;color:var(--violet);
+    background:var(--violet-soft);border:1px solid #D7CBFF;
+    border-radius:999px;padding:6px 14px;margin-bottom:20px;
+  }
+  h1{
+    font-family:'Fraunces',Georgia,serif;font-weight:700;
+    font-size:clamp(1.9rem,5vw,3.1rem);line-height:1.1;
+    letter-spacing:-.01em;max-width:760px;margin:0 auto;
+  }
+  h1 em{font-style:normal;color:var(--violet);}
+  .hero p{
+    max-width:600px;margin:18px auto 0;font-size:1.12rem;color:var(--dim);
+  }
+  .hero p b{color:var(--ink);}
+
+  /* trace demo */
+  .trace{
+    margin:40px auto 6px;max-width:700px;text-align:left;
+    background:var(--panel);border:1px solid var(--line);
+    border-radius:var(--radius);padding:20px 22px;
+    box-shadow:0 24px 60px -34px rgba(36,30,61,.35);
+    position:relative;
+  }
+  .trace::before{
+    content:"reasoning trace";position:absolute;top:-10px;left:20px;
+    font-family:var(--mono);font-size:.62rem;letter-spacing:.16em;
+    text-transform:uppercase;color:#fff;background:var(--violet);
+    padding:3px 10px;border-radius:6px;
+  }
+  .step{
+    display:flex;gap:14px;padding:12px 0;
+    border-bottom:1px dashed var(--line);
+  }
+  .step:last-child{border-bottom:0;}
+  .step .mark{
+    flex:0 0 auto;font-family:var(--mono);font-size:.68rem;font-weight:600;
+    width:66px;text-transform:uppercase;letter-spacing:.08em;padding-top:2px;
+  }
+  .step.thought .mark{color:var(--violet);}
+  .step.action .mark{color:var(--amber);}
+  .step.obs .mark{color:var(--teal);}
+  .step.ans .mark{color:var(--rose);}
+  .step .body{font-size:1rem;color:var(--dim);}
+  .step .body b{color:var(--ink);font-weight:600;}
+  .step .body code{
+    font-family:var(--mono);font-size:.85rem;background:var(--bg2);
+    border:1px solid var(--line);border-radius:6px;padding:1px 6px;color:var(--violet);
+  }
+  .pulse{animation:pulseIn .5s ease both;}
+  @keyframes pulseIn{from{opacity:0;transform:translateX(-8px);}to{opacity:1;transform:none;}}
+
+  /* ---------- Section base ---------- */
+  section{margin-top:64px;}
+  .sec-head{display:flex;align-items:baseline;gap:14px;margin-bottom:14px;}
+  .sec-num{
+    font-family:var(--mono);font-size:.72rem;font-weight:600;color:var(--violet);
+    letter-spacing:.1em;
+  }
+  h2{
+    font-family:'Fraunces',Georgia,serif;font-weight:700;
+    font-size:clamp(1.35rem,3vw,1.85rem);line-height:1.2;
+  }
+  .lede{font-size:1.08rem;color:var(--dim);max-width:720px;}
+  .lede b{color:var(--ink);}
+
+  .card{
+    background:var(--panel);border:1px solid var(--line);
+    border-radius:var(--radius);padding:26px 26px 24px;
+    margin-top:18px;
+    box-shadow:0 18px 44px -36px rgba(36,30,61,.4);
+  }
+  .card h3{
+    font-family:'Fraunces',Georgia,serif;font-size:1.18rem;font-weight:700;
+    margin-bottom:8px;
+  }
+  .card p{font-size:1.03rem;color:var(--dim);margin-bottom:10px;}
+  .card p:last-child{margin-bottom:0;}
+  .card p b{color:var(--ink);}
+  .card code{
+    font-family:var(--mono);font-size:.83rem;background:var(--bg2);
+    border:1px solid var(--line);border-radius:5px;padding:1px 6px;color:var(--violet);
+  }
+  .one-breath{
+    margin-top:14px;background:var(--violet-soft);
+    border-left:3px solid var(--violet);border-radius:0 10px 10px 0;
+    padding:12px 16px;font-size:.98rem;color:var(--ink);
+  }
+
+  /* ---------- Side by side ---------- */
+  .split{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-top:18px;}
+  .split .col{
+    background:var(--panel);border:1px solid var(--line);
+    border-radius:var(--radius);padding:22px;position:relative;overflow:hidden;
+  }
+  .split .col .lbl{
+    font-family:var(--mono);font-size:.64rem;letter-spacing:.16em;
+    text-transform:uppercase;font-weight:600;display:block;margin-bottom:10px;
+  }
+  .split .blurt{border-color:#EFD3DE;}
+  .split .blurt .lbl{color:var(--rose);}
+  .split .blurt{background:linear-gradient(180deg,#FFF6F9,var(--panel));}
+  .split .think{border-color:#D7CBFF;}
+  .split .think .lbl{color:var(--violet);}
+  .split .think{background:linear-gradient(180deg,var(--violet-soft),var(--panel));}
+  .split .col blockquote{
+    font-size:.98rem;color:var(--dim);border:0;font-style:normal;
+  }
+  .split .col blockquote em{color:var(--ink);font-style:italic;}
+
+  /* ---------- ReAct loop ---------- */
+  .loop-wrap{display:grid;grid-template-columns:1fr 1fr;gap:24px;align-items:center;margin-top:18px;}
+  .loop{
+    position:relative;width:100%;max-width:320px;aspect-ratio:1;
+    margin:0 auto;
+  }
+  .loop svg{width:100%;height:100%;}
+  .loop .spin{transform-origin:160px 160px;animation:spin 14s linear infinite;}
+  @keyframes spin{to{transform:rotate(360deg);}}
+  .loop .node-c{
+    position:absolute;width:34%;text-align:center;
+    font-family:var(--mono);font-size:.68rem;font-weight:600;
+    letter-spacing:.06em;text-transform:uppercase;line-height:1.35;
+  }
+  .loop .node-c span{display:block;font-family:'Public Sans',sans-serif;
+    text-transform:none;letter-spacing:0;font-weight:500;font-size:.72rem;color:var(--dim);}
+  .loop .n1{top:6%;left:33%;color:var(--violet);}
+  .loop .n2{bottom:22%;right:0;color:var(--amber);}
+  .loop .n3{bottom:22%;left:0;color:var(--teal);}
+  .loop-legend{display:flex;flex-direction:column;gap:12px;}
+  .leg{
+    padding:14px 16px;border:1px solid var(--line);border-radius:12px;
+    background:var(--panel);border-left:4px solid var(--violet);
+  }
+  .leg.a{border-left-color:var(--amber);}
+  .leg.o{border-left-color:var(--teal);}
+  .leg b{display:block;font-family:var(--mono);font-size:.7rem;letter-spacing:.1em;
+    text-transform:uppercase;margin-bottom:4px;color:var(--violet);}
+  .leg.a b{color:var(--amber);}
+  .leg.o b{color:var(--teal);}
+  .leg{color:var(--dim);font-size:.95rem;}
+
+  /* ---------- Table ---------- */
+  .tbl-scroll{overflow-x:auto;margin-top:18px;border:1px solid var(--line);border-radius:14px;}
+  table{border-collapse:collapse;width:100%;min-width:660px;background:var(--panel);}
+  th,td{padding:14px 16px;text-align:left;font-size:.94rem;border-bottom:1px solid var(--line);}
+  thead th{
+    font-family:var(--mono);font-size:.68rem;letter-spacing:.1em;text-transform:uppercase;
+    color:var(--dim);background:var(--bg2);
+  }
+  tbody tr:last-child td{border-bottom:0;}
+  td:first-child{font-weight:600;color:var(--ink);}
+  td{color:var(--dim);}
+  .yes{color:var(--teal);font-weight:600;}
+  .no{color:var(--rose);font-weight:600;}
+
+  /* ---------- AWS grid ---------- */
+  .aws{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:16px;margin-top:18px;}
+  .svc{
+    background:var(--panel);border:1px solid var(--line);border-radius:14px;
+    padding:20px;border-top:3px solid var(--violet);
+  }
+  .svc.t{border-top-color:var(--teal);}
+  .svc.a{border-top-color:var(--amber);}
+  .svc.r{border-top-color:var(--rose);}
+  .svc .name{
+    font-family:var(--mono);font-size:.78rem;font-weight:600;color:var(--ink);
+    display:block;margin-bottom:6px;
+  }
+  .svc p{font-size:.95rem;color:var(--dim);}
+
+  /* ---------- Gotchas ---------- */
+  .gotchas{display:grid;gap:12px;margin-top:18px;}
+  .got{
+    display:flex;gap:14px;background:var(--amber-soft);
+    border:1px solid #F3DFB8;border-radius:12px;padding:16px 18px;
+  }
+  .got .ic{font-size:1.15rem;line-height:1.4;}
+  .got p{font-size:.96rem;color:#6b5320;}
+  .got p b{color:#4a380f;}
+
+  /* ---------- TLDR ---------- */
+  .tldr{
+    margin-top:64px;background:linear-gradient(150deg,#2A2246,#3B2E70);
+    color:#fff;border-radius:22px;padding:32px 30px;
+    box-shadow:0 30px 70px -40px rgba(42,34,70,.8);
+  }
+  .tldr h2{color:#fff;}
+  .tldr .kicker{background:rgba(255,255,255,.12);border-color:rgba(255,255,255,.25);color:#C9BBFF;}
+  .tldr ol{list-style:none;margin-top:18px;display:grid;gap:12px;}
+  .tldr li{display:flex;gap:12px;font-size:1rem;color:#DCD6F5;}
+  .tldr li b{color:#fff;}
+  .tldr li .n{
+    font-family:var(--mono);font-size:.72rem;font-weight:600;color:#C9BBFF;
+    flex:0 0 auto;padding-top:3px;
+  }
+
+  footer{
+    margin-top:56px;text-align:center;font-family:var(--mono);
+    font-size:.75rem;color:var(--dim);letter-spacing:.04em;
+  }
+  footer a{color:var(--violet);text-decoration:none;}
+  footer a:hover{text-decoration:underline;}
+
+  /* scroll reveal */
+  .reveal{opacity:0;transform:translateY(18px);transition:opacity .6s ease,transform .6s ease;}
+  .reveal.in{opacity:1;transform:none;}
+
+  @media (max-width:720px){
+    .split{grid-template-columns:1fr;}
+    .loop-wrap{grid-template-columns:1fr;}
+    .trace{padding:18px 16px;}
+    .step .mark{width:56px;font-size:.6rem;}
+  }
+  @media (prefers-reduced-motion:reduce){
+    html{scroll-behavior:auto;}
+    .reveal{opacity:1;transform:none;transition:none;}
+    .loop .spin{animation:none;}
+    .pulse{animation:none;}
+  }
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="nav-inner">
+    <span class="brand">CoT · ReAct</span>
+    <a href="#why">Why</a>
+    <a href="#cot">Chain of Thought</a>
+    <a href="#react">ReAct</a>
+    <a href="#compare">Compare</a>
+    <a href="#aws">On AWS</a>
+    <a href="#cert">Cert &amp; jobs</a>
+    <a href="#gotchas">Gotchas</a>
+  </div>
+</nav>
+
+<div class="wrap">
+
+  <!-- HERO -->
+  <header class="hero">
+    <span class="kicker">AWS Gen AI · Explained like you're 5</span>
+    <h1>The model that <em>shows its work</em> gets the answer right.</h1>
+    <p>That's the whole idea behind <b>Chain of Thought</b> and <b>ReAct</b> — two names for one promise: <b>think in steps before you speak.</b></p>
+
+    <div class="trace" id="trace">
+      <div class="step thought" data-step><span class="mark">Thought</span><span class="body">The customer asked for the cheapest flight. I should first <b>look up available flights</b>.</span></div>
+      <div class="step action" data-step><span class="mark">Action</span><span class="body">Call the tool <code>search_flights("BLR → DEL")</code></span></div>
+      <div class="step obs" data-step><span class="mark">Observe</span><span class="body">Tool returned 3 flights: ₹4,200 · ₹5,900 · ₹7,100</span></div>
+      <div class="step thought" data-step><span class="mark">Thought</span><span class="body">₹4,200 is the cheapest. I have <b>enough to answer</b> now.</span></div>
+      <div class="step ans" data-step><span class="mark">Final</span><span class="body">“The cheapest is the 6:10 AM flight at <b>₹4,200</b>.”</span></div>
+    </div>
+    <p style="font-size:.92rem;margin-top:14px;">↑ A real reasoning trace. <b>Thought → Action → Observation → repeat → Answer.</b></p>
+  </header>
+
+  <!-- WHY -->
+  <section id="why" class="reveal">
+    <div class="sec-head"><span class="sec-num">01</span><h2>Why this exists: the model was blurting</h2></div>
+    <p class="lede">A language model predicts the next word. If you ask a hard question and it must answer <b>immediately</b>, it has only one shot — and it often guesses.</p>
+
+    <div class="split">
+      <div class="col blurt">
+        <span class="lbl">✗ Zero-shot (blurts)</span>
+        <blockquote>“Q: A shop had 23 apples, sold 9, got 12 more. How many?<br><br>
+        <em>A: 30</em>”</blockquote>
+      </div>
+      <div class="col think">
+        <span class="lbl">✓ Chain of Thought (shows work)</span>
+        <blockquote>“Q: A shop had 23 apples…<br><br>
+        <em>Let me work through it. 23 − 9 = 14. Then 14 + 12 = 26. So the answer is 26.</em>”</blockquote>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>🧸 The kid version</h3>
+      <p>Think of a maths test. One kid writes the answer straight away and gets it wrong. The other kid <b>writes the steps down</b> — and by writing them, each small step becomes easy.</p>
+      <p>The model is exactly the same. <b>Every token it writes becomes context for the next token.</b> So if it writes “let me add these first…”, that written-out thought is now something it can build on, instead of having to hold everything in its head.</p>
+      <div class="one-breath">💡 <b>In one breath:</b> Chain of Thought turns one giant leap into a staircase of small, checkable steps. That is why accuracy on reasoning tasks goes up.</div>
+    </div>
+  </section>
+
+  <!-- COT -->
+  <section id="cot" class="reveal">
+    <div class="sec-head"><span class="sec-num">02</span><h2>Chain of Thought: prompt it, don't train it</h2></div>
+    <p class="lede">CoT is <b>a prompting technique, not a model you fine-tune</b>. You don't change the weights — you change what you ask for.</p>
+
+    <div class="card">
+      <h3>Two ways to switch it on</h3>
+      <p><b>1. Zero-shot CoT</b> — just add one magic line to your prompt:</p>
+      <p><code>Let's think step by step.</code></p>
+      <p><b>2. Few-shot CoT</b> — show 1–3 worked examples where the reasoning is written out, then give the real question. The model copies the <em>shape</em> of your example.</p>
+      <div class="one-breath">💡 <b>In one breath:</b> zero-shot CoT is one sentence added to your prompt. Few-shot CoT is a handful of worked examples. Neither requires training.</div>
+    </div>
+
+    <div class="card">
+      <h3>⚠️ The part developers forget</h3>
+      <p>The chain is <b>working memory, not user-facing output</b>. If you return the raw reasoning to your app, you're paying tokens, leaking how your system works, and exposing the model's wrong turns.</p>
+      <p><b>Pattern:</b> ask the model to reason inside a clearly-marked block, then ask it to output only the final answer (or parse just the answer field). Bedrock gives you structures for this — a well-defined output schema, or a separate final-answer turn.</p>
+    </div>
+  </section>
+
+  <!-- REACT -->
+  <section id="react" class="reveal">
+    <div class="sec-head"><span class="sec-num">03</span><h2>ReAct: Chain of Thought that can <em>use tools</em></h2></div>
+    <p class="lede">Plain CoT is smart but trapped inside its own head. It can't check the weather, query a database, or read your ticket system. <b>ReAct = Reasoning + Acting.</b> It lets the model think, <b>do something</b>, look at what happened, and think again.</p>
+
+    <div class="loop-wrap">
+      <div class="loop" role="img" aria-label="The ReAct loop: Thought leads to Action, Action leads to Observation, Observation leads back to Thought until a final answer">
+        <svg viewBox="0 0 320 320" aria-hidden="true">
+          <circle cx="160" cy="160" r="112" fill="none" stroke="var(--line)" stroke-width="2" stroke-dasharray="6 6"/>
+          <g class="spin">
+            <circle cx="160" cy="160" r="112" fill="none" stroke="var(--violet)" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="80 620"/>
+            <circle cx="160" cy="160" r="112" fill="none" stroke="var(--teal)" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="70 630" stroke-dashoffset="-215"/>
+            <circle cx="160" cy="160" r="112" fill="none" stroke="var(--amber)" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="70 630" stroke-dashoffset="-430"/>
+          </g>
+          <circle cx="160" cy="160" r="58" fill="var(--bg2)" stroke="var(--line)"/>
+          <text x="160" y="152" text-anchor="middle" font-family="Fira Code, monospace" font-size="13" fill="var(--ink)">loop</text>
+          <text x="160" y="172" text-anchor="middle" font-family="Fira Code, monospace" font-size="10" fill="var(--dim)">until done</text>
+        </svg>
+        <div class="node-c n1">Thought<span>reason about it</span></div>
+        <div class="node-c n2">Action<span>call a tool</span></div>
+        <div class="node-c n3">Observation<span>see the result</span></div>
+      </div>
+
+      <div class="loop-legend">
+        <div class="leg">
+          <b>Thought</b>The model writes its reasoning — what it knows, what's missing, and which tool would help.
+        </div>
+        <div class="leg a">
+          <b>Action</b>It emits a tool call in a fixed format: e.g. <code>search_orders({"id":"A19"})</code>.
+        </div>
+        <div class="leg o">
+          <b>Observation</b>Your code runs the tool and feeds the result straight back into the model's context.
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>🧸 Kid version</h3>
+      <p>CoT is a kid thinking out loud. ReAct is that same kid <b>allowed to open the book, check the map, or ask the teacher</b>, then carry on thinking with the new fact in hand — and repeat until the answer is solid.</p>
+      <p><b>The critical bit:</b> the model never runs your code. It only <em>asks</em>. Your orchestration layer executes the tool and pastes the output back in. That boundary is where security lives.</p>
+      <div class="one-breath">💡 <b>In one breath:</b> ReAct = CoT + a tool belt + a loop, and you (not the model) hold the belt.</div>
+    </div>
+  </section>
+
+  <!-- COMPARE -->
+  <section id="compare" class="reveal">
+    <div class="sec-head"><span class="sec-num">04</span><h2>Side by side</h2></div>
+    <div class="tbl-scroll">
+      <table>
+        <thead>
+          <tr><th>Technique</th><th>Thinks in steps?</th><th>Can use tools?</th><th>Typical cost</th><th>Best for</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Plain prompt</td>
+            <td class="no">No</td>
+            <td class="no">No</td>
+            <td>Lowest</td>
+            <td>Simple FAQs, summarising, rewriting, classification</td>
+          </tr>
+          <tr>
+            <td>Chain of Thought</td>
+            <td class="yes">Yes</td>
+            <td class="no">No</td>
+            <td>More output tokens</td>
+            <td>Maths, logic, planning, multi-step reasoning where the answer must be right</td>
+          </tr>
+          <tr>
+            <td>ReAct</td>
+            <td class="yes">Yes</td>
+            <td class="yes">Yes</td>
+            <td>Highest — many model round-trips</td>
+            <td>Tasks needing live data or side effects: book it, look it up, update the record</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="lede" style="margin-top:14px;font-size:1rem;">Rule of thumb: <b>don't reach for ReAct when CoT will do.</b> Every loop adds latency and cost. Start simple; add tools only when the model genuinely needs outside facts.</p>
+  </section>
+
+  <!-- AWS -->
+  <section id="aws" class="reveal">
+    <div class="sec-head"><span class="sec-num">05</span><h2>Where this lives on AWS</h2></div>
+    <p class="lede">You rarely build the loop from scratch. AWS gives you the runtimes, and the reasoning pattern still describes what happens inside them.</p>
+
+    <div class="aws">
+      <div class="svc">
+        <span class="name">🤖 Amazon Bedrock Agents</span>
+        <p>The managed ReAct engine. You define an <b>action group</b> (an OpenAPI schema or a Lambda function) and a <b>knowledge base</b>. The agent builds the Thought → Action → Observation loop for you, calls your Lambda, and returns the final answer with a trace you can inspect.</p>
+      </div>
+      <div class="svc t">
+        <span class="name">🔗 Bedrock Knowledge Bases</span>
+        <p>Your retrieval tool. Instead of forcing the model to remember facts, the agent searches your documents and feeds the closest passages back — the Observation step, with embeddings doing the finding.</p>
+      </div>
+      <div class="svc a">
+        <span class="name">🧱 Bedrock Converse API</span>
+        <p>The plain building blocks. You own the loop: send messages, receive a <b>tool-use</b> request, run the tool yourself, append the result as a <code>toolResult</code>, and send again. Best when you need custom orchestration.</p>
+      </div>
+      <div class="svc r">
+        <span class="name">🛡️ Bedrock Guardrails</span>
+        <p>Your boundary layer. Grounding checks, denied topics, PII redaction, and a <b>contextual grounding score</b> that flags when an answer isn't supported by the retrieved source — crucial when a reasoning chain drifts.</p>
+      </div>
+      <div class="svc t">
+        <span class="name">🚀 Amazon Bedrock AgentCore</span>
+        <p>Runtime and tooling for longer-running, production agents: sessions, memory, identity, and isolated execution so your action tools run safely outside the model.</p>
+      </div>
+      <div class="svc">
+        <span class="name">🧪 Amazon SageMaker</span>
+        <p>When you want to go deeper: evaluate reasoning quality with your own harness, fine-tune a model to reason in your domain style, or host an open-weights reasoning model on your own endpoints.</p>
+      </div>
+      <div class="svc a">
+        <span class="name">🔁 AWS Step Functions</span>
+        <p>Deterministic orchestration around the model. Encode the multi-step workflow, retries, and human-approval gates as a state machine so a flaky tool call can't derail the whole task.</p>
+      </div>
+      <div class="svc r">
+        <span class="name">📊 Amazon CloudWatch &amp; model invocation logging</span>
+        <p>Log the full trace: prompt, thoughts, tool calls, observations, and final answer. This is how you debug a bad chain and how you prove, later, why the model said what it said.</p>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>A reference architecture (say it in an interview like this)</h3>
+      <p><b>Entry:</b> API Gateway → Lambda → Amazon Bedrock Agent. <b>Reasoning:</b> the agent runs a ReAct loop on a chosen foundation model. <b>Tools:</b> action-group Lambdas call your systems; a knowledge base supplies grounded context. <b>Guardrails:</b> Bedrock Guardrails filter and grounding-check the output. <b>Identity:</b> AgentCore keeps per-user sessions isolated. <b>Observability:</b> CloudWatch + invocation logging capture the full trace. <b>Approval:</b> Step Functions gates any irreversible action.</p>
+    </div>
+  </section>
+
+  <!-- CERT -->
+  <section id="cert" class="reveal">
+    <div class="sec-head"><span class="sec-num">06</span><h2>Certification &amp; job relevance</h2></div>
+    <p class="lede">Prompting techniques sit squarely in the AWS Gen AI certification objectives — and they're a standard interview screen for Gen AI developer roles.</p>
+
+    <div class="card">
+      <h3>What to be able to say out loud</h3>
+      <p><b>AWS Certified AI Practitioner (AIF-C01)</b> — foundational prompt-engineering domain: you should know what chain-of-thought prompting is, why it improves reasoning output, and that ReAct combines reasoning with tool use.</p>
+      <p><b>AWS Certified Machine Learning Engineer – Associate (MLA-C01)</b> — the applied Gen AI domain expects you to pick the right orchestration approach for a task, define Bedrock agents with action groups, and evaluate/guardrail the output.</p>
+      <p><b>Interview favourite:</b> “When would you use ReAct over plain CoT?” A strong answer names the cost/latency trade-off, the need for live or private data, the risk of runaway loops, and how you'd bound iterations and gate risky actions.</p>
+      <div class="one-breath">💡 <b>Sound like a pro:</b> talk about <b>the trace</b>, not just the answer. In production Gen AI, the ability to inspect and evaluate the reasoning path is the skill that's actually paid for.</div>
+    </div>
+  </section>
+
+  <!-- GOTCHAS -->
+  <section id="gotchas" class="reveal">
+    <div class="sec-head"><span class="sec-num">07</span><h2>Gotchas &amp; fine print</h2></div>
+    <div class="gotchas">
+      <div class="got">
+        <span class="ic">⏱️</span>
+        <p><b>Latency and cost compound.</b> A ReAct task with 8 loop iterations is 8+ model round-trips. Cap iterations, cache tool results, and route easy requests to plain prompts.</p>
+      </div>
+      <div class="got">
+        <span class="ic">🌀</span>
+        <p><b>Loops can spin.</b> Without a hard stop the agent may retry a failing tool forever. Always set a max-iteration ceiling and a fallback message.</p>
+      </div>
+      <div class="got">
+        <span class="ic">🔒</span>
+        <p><b>The model never executes anything.</b> It only requests. Your orchestrator runs the tool — so validate arguments, scope IAM permissions tightly, and never expose an action you wouldn't let a stranger call.</p>
+      </div>
+      <div class="got">
+        <span class="ic">🎭</span>
+        <p><b>A confident chain isn't a correct chain.</b> The model can reason beautifully to the wrong place. Ground answers in retrieved sources and use grounding/faithfulness checks rather than trusting the prose.</p>
+      </div>
+      <div class="got">
+        <span class="ic">🙈</span>
+        <p><b>Don't leak the chain.</b> Raw reasoning can expose system instructions and confuse end users. Return the answer, log the trace internally.</p>
+      </div>
+      <div class="got">
+        <span class="ic">🧩</span>
+        <p><b>Tools are harder than prompts.</b> Most project failures are vague tool descriptions and bad schemas, not bad models. Be precise about what each tool does and when to use it.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- TLDR -->
+  <section class="tldr reveal">
+    <span class="kicker">TL;DR</span>
+    <h2>Seven things to carry away</h2>
+    <ol>
+      <li><span class="n">01</span><span><b>Chain of Thought</b> = ask the model to reason in steps before answering. It's a prompting trick, not training.</span></li>
+      <li><span class="n">02</span><span><b>“Let's think step by step”</b> is the whole zero-shot version. Worked examples are the few-shot version.</span></li>
+      <li><span class="n">03</span><span><b>ReAct = Reasoning + Acting</b> — CoT plus tool calls plus a loop, until the model has enough to answer.</span></li>
+      <li><span class="n">04</span><span><b>Your code runs the tools, never the model.</b> That boundary is your security perimeter.</span></li>
+      <li><span class="n">05</span><span>On AWS, <b>Bedrock Agents</b> is managed ReAct; <b>Converse API</b> is DIY ReAct; <b>Knowledge Bases</b> is the retrieval tool; <b>Guardrails</b> is the safety net.</span></li>
+      <li><span class="n">06</span><span><b>Keep the reasoning internal.</b> Log the trace, return only the answer.</span></li>
+      <li><span class="n">07</span><span><b>Bound it.</b> Cap iterations, watch latency and cost, and never let a chain trigger a destructive action without a gate.</span></li>
+    </ol>
+  </section>
+
+  <footer>
+    Made with 💛 by Buffy · <a href="https://docs.aws.amazon.com/bedrock/latest/userguide/agents.html" target="_blank" rel="noopener">Bedrock Agents docs</a> · <a href="https://github.com/mrlearner1606/eli5" target="_blank" rel="noopener">main branch</a>
+  </footer>
+</div>
+
+<script>
+  // scroll reveal
+  var revealEls = document.querySelectorAll('.reveal');
+  if ('IntersectionObserver' in window) {
+    var io = new IntersectionObserver(function (entries) {
+      entries.forEach(function (e) {
+        if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); }
+      });
+    }, { threshold: 0.12 });
+    revealEls.forEach(function (el) { io.observe(el); });
+  } else {
+    revealEls.forEach(function (el) { el.classList.add('in'); });
+  }
+
+  // animate the reasoning trace in sequence
+  (function () {
+    var steps = document.querySelectorAll('#trace [data-step]');
+    var reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (reduced) { steps.forEach(function (s) { s.classList.add('pulse'); }); return; }
+    steps.forEach(function (s, i) {
+      setTimeout(function () { s.classList.add('pulse'); }, 320 * i + 260);
+    });
+  })();
+</script>
+</body>
+</html>
