@@ -1,0 +1,512 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ELI5: Security &amp; Governance — the castle that guards your AI</title>
+<meta name="description" content="AWS security and governance for Gen AI, explained simply: walls, gates, badges, and a rule book.">
+<style>
+  :root {
+    --night: #0a0e1a;
+    --night-2: #101728;
+    --panel: #141c30;
+    --panel-2: #1a2440;
+    --line: #27334f;
+    --star: #cfe0ff;
+    --moon: #f2f6ff;
+    --muted: #8fa3c8;
+    --gold: #ffc233;
+    --gold-soft: rgba(255, 194, 51, 0.14);
+    --cyan: #4cc9f0;
+    --cyan-soft: rgba(76, 201, 240, 0.12);
+    --green: #5adba0;
+    --red: #ff7a7a;
+    --radius: 18px;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    color: var(--star);
+    line-height: 1.65;
+    background:
+      radial-gradient(1100px 500px at 85% -10%, rgba(255,194,51,0.10), transparent 60%),
+      radial-gradient(900px 480px at 8% -12%, rgba(76,201,240,0.12), transparent 60%),
+      var(--night);
+    padding: 0 16px 72px;
+  }
+  .page { max-width: 1020px; margin: 0 auto; }
+
+  /* twinkling stars */
+  .stars {
+    position: fixed; inset: 0; pointer-events: none; z-index: 0;
+    background-image:
+      radial-gradient(1.5px 1.5px at 12% 18%, rgba(255,255,255,.5), transparent 100%),
+      radial-gradient(1.5px 1.5px at 78% 12%, rgba(255,255,255,.4), transparent 100%),
+      radial-gradient(1px 1px at 34% 8%, rgba(255,255,255,.45), transparent 100%),
+      radial-gradient(1.5px 1.5px at 60% 26%, rgba(255,255,255,.3), transparent 100%),
+      radial-gradient(1px 1px at 88% 34%, rgba(255,255,255,.4), transparent 100%),
+      radial-gradient(1px 1px at 22% 40%, rgba(255,255,255,.3), transparent 100%);
+  }
+  .page { position: relative; z-index: 1; }
+
+  /* ---------- sticky nav ---------- */
+  .nav {
+    position: sticky; top: 0; z-index: 20;
+    display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+    padding: 12px 6px;
+    background: rgba(10, 14, 26, 0.82);
+    backdrop-filter: blur(8px);
+    border-bottom: 1px solid var(--line);
+  }
+  .nav .brand { font-weight: 800; color: var(--moon); letter-spacing: .02em; margin-right: auto; }
+  .nav .brand .lock { color: var(--gold); }
+  .nav a {
+    color: var(--muted); text-decoration: none; font-size: .82rem; font-weight: 600;
+    padding: 6px 11px; border-radius: 999px; border: 1px solid transparent;
+    transition: color .15s ease, border-color .15s ease, background .15s ease;
+  }
+  .nav a:hover, .nav a:focus-visible { color: var(--gold); border-color: var(--line); background: var(--gold-soft); }
+  a:focus-visible { outline: 2px solid var(--cyan); outline-offset: 2px; }
+
+  /* ---------- hero ---------- */
+  .hero { text-align: center; padding: 52px 0 8px; }
+  .eyebrow {
+    display: inline-block;
+    font-family: ui-monospace, "IBM Plex Mono", Menlo, monospace;
+    font-size: .72rem; font-weight: 600; letter-spacing: .18em; text-transform: uppercase;
+    color: var(--gold);
+    background: var(--gold-soft);
+    border: 1px solid rgba(255,194,51,.35);
+    border-radius: 999px; padding: 6px 14px; margin-bottom: 18px;
+  }
+  h1 {
+    font-size: clamp(2rem, 5.4vw, 3.3rem); line-height: 1.12; font-weight: 800;
+    color: var(--moon); letter-spacing: -.01em;
+  }
+  h1 .glow {
+    background: linear-gradient(92deg, var(--gold), var(--cyan));
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+  }
+  .hero-sub { color: var(--muted); font-size: 1.14rem; max-width: 640px; margin: 16px auto 0; }
+  .hero-sub strong { color: var(--moon); }
+
+  /* ---------- castle emblem ---------- */
+  .emblem { display: flex; align-items: stretch; justify-content: center; gap: 12px; flex-wrap: wrap; margin: 38px 0 6px; }
+  .tower {
+    background: var(--panel); border: 1px solid var(--line); border-radius: 16px;
+    padding: 16px 14px 12px; text-align: center; min-width: 128px; position: relative;
+    box-shadow: 0 10px 30px rgba(0,0,0,.35);
+  }
+  .tower .emoji { font-size: 2rem; display: block; line-height: 1; }
+  .tower .lbl {
+    font-family: ui-monospace, Menlo, monospace; font-size: .62rem; letter-spacing: .13em;
+    text-transform: uppercase; color: var(--muted); display: block; margin-top: 8px;
+  }
+  .tower.castle {
+    background: linear-gradient(180deg, var(--panel-2), var(--panel));
+    border: 1.5px solid var(--gold);
+    box-shadow: 0 0 0 4px var(--gold-soft), 0 14px 40px rgba(255,194,51,.12);
+  }
+  .tower.castle::before {
+    content: ""; position: absolute; top: 0; left: 0; right: 0; height: 3px;
+    border-radius: 16px 16px 0 0;
+    background: repeating-linear-gradient(90deg, var(--gold) 0 8px, transparent 8px 14px);
+  }
+  .tower.castle .emoji { animation: bob 3.2s ease-in-out infinite; }
+  @keyframes bob { 0%,100% { transform: translateY(0);} 50% { transform: translateY(-4px);} }
+  .beam { align-self: center; color: var(--muted); font-size: 1.1rem; }
+
+  /* ---------- sections ---------- */
+  section {
+    background: linear-gradient(180deg, var(--panel), var(--night-2));
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    padding: clamp(22px, 4vw, 36px);
+    margin: 30px 0;
+    scroll-margin-top: 76px;
+  }
+  h2 { color: var(--moon); font-size: clamp(1.3rem, 3vw, 1.7rem); line-height: 1.25; margin-bottom: 12px; }
+  h2 .ic { margin-right: 8px; }
+  h3 { color: var(--moon); font-size: 1.05rem; margin: 18px 0 8px; }
+  p { margin-bottom: 12px; font-size: 1.04rem; }
+  p:last-child { margin-bottom: 0; }
+  strong { color: var(--moon); font-weight: 700; }
+  .hl-gold { background: linear-gradient(transparent 55%, rgba(255,194,51,.35) 55%); color: var(--moon); font-weight: 700; }
+  .hl-cyan { background: linear-gradient(transparent 55%, rgba(76,201,240,.3) 55%); color: var(--moon); font-weight: 700; }
+  code {
+    font-family: ui-monospace, "IBM Plex Mono", Menlo, monospace;
+    font-size: .88em; color: var(--cyan);
+    background: var(--cyan-soft); border: 1px solid rgba(76,201,240,.25);
+    padding: 2px 7px; border-radius: 6px;
+  }
+  .kidline {
+    margin-top: 16px; padding: 13px 16px;
+    border-left: 4px solid var(--gold);
+    background: var(--gold-soft); border-radius: 0 12px 12px 0;
+    font-size: 1.06rem; color: var(--moon);
+  }
+
+  /* ---------- two-word split ---------- */
+  .split { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 18px; }
+  .half {
+    border-radius: 14px; padding: 20px; font-size: 1rem;
+    border: 1px solid var(--line); background: var(--night-2);
+  }
+  .half.lock { border-color: rgba(255,194,51,.5); box-shadow: inset 0 3px 0 rgba(255,194,51,.5); }
+  .half.book { border-color: rgba(76,201,240,.5); box-shadow: inset 0 3px 0 rgba(76,201,240,.5); }
+  .half .h-title { display: flex; align-items: center; gap: 10px; font-weight: 800; font-size: 1.15rem; color: var(--moon); margin-bottom: 8px; }
+  .half.lock .h-title .emoji { color: var(--gold); }
+  .half.book .h-title .emoji { color: var(--cyan); }
+  .half .h-q { font-size: .78rem; font-family: ui-monospace, Menlo, monospace; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); display: block; margin-bottom: 10px; }
+
+  /* ---------- onion / layers ---------- */
+  .onion { margin-top: 22px; display: flex; flex-direction: column; gap: 8px; }
+  .ring {
+    display: flex; align-items: center; gap: 14px;
+    border-radius: 12px; padding: 12px 16px; font-size: .98rem;
+    border: 1px solid var(--line);
+  }
+  .ring .r-emoji { font-size: 1.4rem; flex: 0 0 auto; }
+  .ring b { color: var(--moon); }
+  .ring .r-note { color: var(--muted); font-size: .88rem; margin-left: auto; text-align: right; }
+  .ring.l1 { background: rgba(255,122,122,.10); border-color: rgba(255,122,122,.45); }
+  .ring.l2 { background: rgba(255,194,51,.09); border-color: rgba(255,194,51,.4); }
+  .ring.l3 { background: rgba(76,201,240,.09); border-color: rgba(76,201,240,.4); }
+  .ring.l4 { background: rgba(90,219,160,.09); border-color: rgba(90,219,160,.4); }
+  .ring.l5 { background: rgba(19,28,48,1); }
+
+  /* ---------- checkpoint journey ---------- */
+  .journey { margin-top: 20px; position: relative; }
+  .step {
+    display: flex; gap: 16px; align-items: flex-start;
+    background: var(--night-2); border: 1px solid var(--line);
+    border-radius: 14px; padding: 16px 18px; margin-bottom: 12px; position: relative;
+  }
+  .step:last-child { margin-bottom: 0; }
+  .step .gate {
+    flex: 0 0 auto; width: 46px; height: 46px; display: grid; place-items: center;
+    font-size: 1.4rem; background: var(--panel-2);
+    border: 1.5px solid var(--gold); border-radius: 12px;
+    box-shadow: 0 0 12px rgba(255,194,51,.15);
+  }
+  .step .s-body { min-width: 0; }
+  .step b { color: var(--moon); }
+  .step .s-sub { color: var(--muted); font-size: .9rem; }
+  .step .svc {
+    display: inline-block; margin-top: 7px; margin-right: 6px;
+    font-family: ui-monospace, Menlo, monospace; font-size: .68rem; font-weight: 600;
+    letter-spacing: .06em; color: var(--cyan);
+    background: var(--cyan-soft); border: 1px solid rgba(76,201,240,.3);
+    padding: 2px 9px; border-radius: 999px;
+  }
+  .step.check b { color: var(--green); }
+  .step.check .gate { border-color: var(--green); box-shadow: 0 0 12px rgba(90,219,160,.15); }
+
+  /* ---------- scan door ---------- */
+  .vault-door {
+    margin: 24px auto 4px; width: min(340px, 100%);
+    border: 2px solid var(--line); border-radius: 20px; overflow: hidden;
+    background: var(--night-2);
+  }
+  .door-face {
+    position: relative; height: 150px;
+    display: grid; place-items: center;
+    background:
+      repeating-linear-gradient(90deg, rgba(39,51,79,.55) 0 2px, transparent 2px 26px),
+      linear-gradient(180deg, var(--panel-2), var(--night-2));
+  }
+  .door-face .emoji { font-size: 3rem; position: relative; z-index: 2; }
+  .scanline {
+    position: absolute; left: 0; right: 0; height: 3px; z-index: 1;
+    background: linear-gradient(90deg, transparent, var(--cyan), transparent);
+    opacity: .8; animation: sweep 2.6s linear infinite;
+  }
+  @keyframes sweep { 0% { top: 4%; } 100% { top: 94%; } }
+  .door-foot {
+    padding: 10px 14px; font-family: ui-monospace, Menlo, monospace;
+    font-size: .72rem; color: var(--muted); display: flex; justify-content: space-between; gap: 10px;
+  }
+  .dot { color: var(--green); }
+
+  /* ---------- service grid ---------- */
+  .svc-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 18px; }
+  .svc-card {
+    background: var(--night-2); border: 1px solid var(--line); border-radius: 14px; padding: 18px;
+    transition: transform .15s ease, border-color .15s ease;
+  }
+  .svc-card:hover { transform: translateY(-2px); border-color: rgba(255,194,51,.5); }
+  .svc-card .name {
+    font-family: ui-monospace, Menlo, monospace; font-weight: 700; font-size: .9rem;
+    color: var(--gold); display: flex; align-items: center; gap: 8px; margin-bottom: 7px;
+  }
+  .svc-card p { font-size: .94rem; color: var(--star); margin: 0; }
+
+  /* ---------- table ---------- */
+  .table-wrap { overflow-x: auto; margin-top: 18px; }
+  table { width: 100%; border-collapse: collapse; font-size: .96rem; min-width: 560px; }
+  th, td { text-align: left; padding: 11px 14px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  thead th {
+    font-family: ui-monospace, Menlo, monospace; font-size: .68rem; letter-spacing: .12em;
+    text-transform: uppercase; color: var(--muted); border-bottom: 2px solid var(--gold);
+  }
+  tbody tr:last-child td { border-bottom: none; }
+  td:first-child { font-weight: 700; color: var(--moon); white-space: nowrap; }
+
+  /* ---------- badges / cert ---------- */
+  .cert-strip { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 16px; }
+  .pill {
+    font-family: ui-monospace, Menlo, monospace; font-size: .74rem; font-weight: 600;
+    letter-spacing: .05em; color: var(--moon);
+    background: var(--panel-2); border: 1px solid var(--line);
+    border-radius: 999px; padding: 6px 13px;
+  }
+  .pill.hot { color: var(--gold); border-color: rgba(255,194,51,.45); background: var(--gold-soft); }
+
+  /* ---------- gotchas ---------- */
+  .gotchas { list-style: none; margin-top: 6px; }
+  .gotchas li {
+    background: var(--night-2); border: 1px solid rgba(255,122,122,.4);
+    border-left: 4px solid var(--red);
+    border-radius: 12px; padding: 13px 17px; margin-bottom: 10px; font-size: .99rem;
+  }
+  .gotchas li b { color: var(--moon); }
+
+  /* ---------- TL;DR ---------- */
+  .tldr { list-style: none; margin-top: 8px; counter-reset: t; }
+  .tldr li { counter-increment: t; position: relative; padding: 9px 0 9px 42px; font-size: 1.05rem; }
+  .tldr li::before {
+    content: counter(t, decimal-leading-zero);
+    position: absolute; left: 0; top: 9px;
+    font-family: ui-monospace, Menlo, monospace; font-size: .8rem; font-weight: 700;
+    color: var(--gold); background: var(--gold-soft); border: 1px solid rgba(255,194,51,.35);
+    border-radius: 8px; padding: 2px 7px;
+  }
+
+  /* ---------- final card ---------- */
+  .final { text-align: center; border-color: rgba(255,194,51,.4); }
+  .formula {
+    font-weight: 800; color: var(--moon);
+    font-size: clamp(1.15rem, 2.8vw, 1.5rem); line-height: 1.5; margin: 8px 0 14px;
+  }
+  .formula .op { color: var(--muted); padding: 0 8px; }
+  .formula .res { color: var(--gold); }
+
+  footer { text-align: center; color: var(--muted); font-size: .82rem; margin-top: 44px; }
+  footer a { color: var(--cyan); }
+
+  /* reveal */
+  .reveal { opacity: 0; transform: translateY(14px); transition: opacity .5s ease, transform .5s ease; }
+  .reveal.in { opacity: 1; transform: none; }
+
+  @media (max-width: 640px) {
+    .split, .svc-grid { grid-template-columns: 1fr; }
+    .step { gap: 12px; }
+    .ring .r-note { display: none; }
+    .beam { width: 100%; text-align: center; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .scanline, .tower.castle .emoji { animation: none; }
+    .reveal { opacity: 1; transform: none; transition: none; }
+  }
+</style>
+</head>
+<body>
+<div class="stars" aria-hidden="true"></div>
+<div class="page">
+
+  <!-- NAV -->
+  <nav class="nav" aria-label="Sections">
+    <span class="brand"><span class="lock">🔒</span> ELI5 · vault</span>
+    <a href="#idea">Idea</a>
+    <a href="#layers">Layers</a>
+    <a href="#journey">Journey</a>
+    <a href="#aws">AWS kit</a>
+    <a href="#governance">Rule book</a>
+    <a href="#tldr">TL;DR</a>
+  </nav>
+
+  <!-- HERO -->
+  <header class="hero">
+    <span class="eyebrow">AWS Gen AI · Explained like you're 5</span>
+    <h1>Build a <span class="glow">castle</span> around your AI.</h1>
+    <p class="hero-sub">Walls, gates, badges, and guards — plus a <strong>rule book</strong> everyone must follow. That's <strong>Security &amp; Governance</strong> on AWS.</p>
+
+    <div class="emblem" role="img" aria-label="A guarded castle at night protecting an AI brain, with guards, keys and a rule book">
+      <div class="tower"><span class="emoji">🛡️</span><span class="lbl">Guards</span></div>
+      <div class="beam">✦</div>
+      <div class="tower castle"><span class="emoji">🏰</span><span class="lbl">Your AI</span></div>
+      <div class="beam">✦</div>
+      <div class="tower"><span class="emoji">🔑</span><span class="lbl">Keys</span></div>
+      <div class="beam">✦</div>
+      <div class="tower"><span class="emoji">📖</span><span class="lbl">Rules</span></div>
+    </div>
+
+    <!-- scanning vault door -->
+    <div class="vault-door" aria-hidden="true">
+      <div class="door-face">
+        <div class="scanline"></div>
+        <span class="emoji">🔒</span>
+      </div>
+      <div class="door-foot"><span>castle-access-check</span><span><span class="dot">●</span> scanning…</span></div>
+    </div>
+  </header>
+
+  <!-- THE IDEA -->
+  <section id="idea" class="reveal">
+    <h2><span class="ic">🧠</span>Two big words, one simple job</h2>
+    <p>Your Gen AI app is precious. People will try to <strong>read</strong> its secrets, <strong>trick</strong> its model, or <strong>abuse</strong> its power. Two words describe how you stop that:</p>
+    <div class="split">
+      <div class="half lock">
+        <span class="h-title"><span class="emoji">🔒</span> Security</span>
+        <span class="h-q">"Who gets in?"</span>
+        Guards at every door. Check IDs, lock the treasure chest, watch for sneaky visitors. It's <em>protection</em>.
+      </div>
+      <div class="half book">
+        <span class="h-title"><span class="emoji">📖</span> Governance</span>
+        <span class="h-q">"Who made the rules?"</span>
+        The rule book: who may use the AI, what it may never say, how much it may spend, and a diary proving you followed the rules. It's <em>order</em>.
+      </div>
+    </div>
+    <div class="kidline">🧸 <strong>In one breath:</strong> Security is the castle's walls and guards. Governance is the king's rule book that tells everyone what they may and may not do.</div>
+  </section>
+
+  <!-- LAYERS -->
+  <section id="layers" class="reveal">
+    <h2><span class="ic">🧅</span>One lock is not enough — use onion layers</h2>
+    <p>Never guard your castle with a single wall. If one layer fails, the <strong>next layer catches the trouble</strong>. Cloud people call it <span class="hl-gold">defense in depth</span>.</p>
+    <div class="onion" role="img" aria-label="Five layers from outer walls to the treasure vault">
+      <div class="ring l1"><span class="r-emoji">🧱</span><span><b>Identity</b> — who are you, really?</span><span class="r-note">IAM · Cognito</span></div>
+      <div class="ring l2"><span class="r-emoji">🚪</span><span><b>Network</b> — keep it inside the castle</span><span class="r-note">VPC · PrivateLink</span></div>
+      <div class="ring l3"><span class="r-emoji">🛡️</span><span><b>Model safety</b> — filter bad prompts &amp; answers</span><span class="r-note">Bedrock Guardrails</span></div>
+      <div class="ring l4"><span class="r-emoji">🔐</span><span><b>Data</b> — lock the treasure chest</span><span class="r-note">KMS · Macie</span></div>
+      <div class="ring l5"><span class="r-emoji">📜</span><span><b>Watch &amp; prove</b> — the castle diary</span><span class="r-note">CloudTrail · CloudWatch · Audit Manager</span></div>
+    </div>
+    <div class="kidline">🧸 Even if a guard naps, the next wall is awake. Layers win.</div>
+  </section>
+
+  <!-- JOURNEY -->
+  <section id="journey" class="reveal">
+    <h2><span class="ic">🚶</span>Follow one request through the castle gates</h2>
+    <p>Watch a kid (a user request) walk from the drawbridge to the treasure vault — every checkpoint it must pass:</p>
+    <div class="journey">
+      <div class="step">
+        <div class="gate">🪪</div>
+        <div class="s-body"><b>Gate 1 · Show your badge</b><br>Prove who you are, and get only the key you need — nothing more. That's <span class="hl-cyan">least privilege</span>.<br><span class="s-sub">One guard, one key — never hand the master key to everyone.</span><br><span class="svc">IAM roles</span><span class="svc">Cognito</span></div>
+      </div>
+      <div class="step">
+        <div class="gate">🛡️</div>
+        <div class="s-body"><b>Gate 2 · Search the incoming bag</b><br>Before your prompt reaches the model, filters look for jailbreaks, hidden instructions, and private info (PII).<br><span class="svc">Bedrock Guardrails (input)</span></div>
+      </div>
+      <div class="step">
+        <div class="gate">🧠</div>
+        <div class="s-body"><b>Gate 3 · The brain thinks inside the castle</b><br>The model runs privately on Bedrock. Your prompts aren't used to train it, and you can keep everything in a private network corridor.<br><span class="svc">Bedrock</span><span class="svc">VPC / PrivateLink</span></div>
+      </div>
+      <div class="step">
+        <div class="gate">🔐</div>
+        <div class="s-body"><b>Gate 4 · Open the treasure chest carefully</b><br>Documents are encrypted with keys only the castle holds. Extra checks mask private info before it's used.<br><span class="svc">KMS</span><span class="svc">S3 encryption</span><span class="svc">Macie (finds PII)</span></div>
+      </div>
+      <div class="step">
+        <div class="gate">🛡️</div>
+        <div class="s-body"><b>Gate 5 · Search the outgoing bag too</b><br>The answer gets checked before it leaves: no secrets, no rude words, no made-up bad stuff. Private info is masked.<br><span class="svc">Bedrock Guardrails (output)</span></div>
+      </div>
+      <div class="step check">
+        <div class="gate">✅</div>
+        <div class="s-body"><b>Gate 6 · Sign the guest book</b><br>Every visit is written into the castle diary: who came, what they asked, what left. Auditors love a tidy diary.<br><span class="svc">CloudTrail</span><span class="svc">CloudWatch</span></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- AWS KIT -->
+  <section id="aws" class="reveal">
+    <h2><span class="ic">🧰</span>The AWS guard kit, at a glance</h2>
+    <div class="svc-grid">
+      <div class="svc-card"><span class="name">🪪 IAM</span><p>Hands out the least-privilege keys: roles, policies, and temporary credentials. Never hardcode keys in code!</p></div>
+      <div class="svc-card"><span class="name">🛡️ Bedrock Guardrails</span><p>A filter wall around any model — blocked topics, denied words, PII masking, jailbreak defense.</p></div>
+      <div class="svc-card"><span class="name">🔑 KMS</span><p>The master keymaker: encrypts your data and keeps keys under your control.</p></div>
+      <div class="svc-card"><span class="name">🚪 VPC &amp; PrivateLink</span><p>Private corridors between your app and Bedrock — traffic never walks the open street.</p></div>
+      <div class="svc-card"><span class="name">📜 CloudTrail</span><p>The castle diary — records every API call so you can prove who did what, when.</p></div>
+      <div class="svc-card"><span class="name">🔍 Macie &amp; Inspector</span><p>Sniffer dogs: Macie finds hidden private data in S3; Inspector hunts weak spots in your setup.</p></div>
+      <div class="svc-card"><span class="name">📋 AWS Config</span><p>The rules checker — alerts you when something drifts away from the approved plan.</p></div>
+      <div class="svc-card"><span class="name">🧭 Audit Manager</span><p>Auto-collects evidence so audits become a formality, not a fire drill.</p></div>
+    </div>
+  </section>
+
+  <!-- GOVERNANCE -->
+  <section id="governance" class="reveal">
+    <h2><span class="ic">📖</span>Governance: the king's rule book</h2>
+    <p>Security guards the doors; <span class="hl-cyan">governance decides what the doors are for</span>. For a Gen AI app that means four pages in the book:</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Rule</th><th>What it means</th></tr></thead>
+        <tbody>
+          <tr><td>🧑‍🏫 Human in the loop</td><td>A teacher checks the AI's homework before it goes out — especially for anything risky (health, money, legal).</td></tr>
+          <tr><td>🎭 Allowed uses</td><td>Write down what the AI may and may never do. Enforce it with Guardrails, not just good intentions.</td></tr>
+          <tr><td>💸 Cost guardrails</td><td>Budgets and alarms stop the AI from eating coins all night. Governance covers spending too!</td></tr>
+          <tr><td>🧾 Audit trail</td><td>Logs, versions, and evidence you can show a grown-up (auditor) later. If it isn't written down, it didn't happen.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="kidline">🧸 Security = <strong>guards</strong>. Governance = <strong>rule book + diary + budget jar</strong>. You need both.</div>
+
+    <h3>🎓 Why this matters for your career</h3>
+    <p>This isn't just nice-to-know — it's <strong>a whole exam domain</strong> and a daily developer job:</p>
+    <div class="cert-strip">
+      <span class="pill hot">AIF-C01 · Domain 3: Governance, Compliance &amp; Security for AI</span>
+      <span class="pill">MLS-C01 · secure pipelines &amp; roles</span>
+      <span class="pill">🛡️ Bedrock Guardrails in every real deployment</span>
+      <span class="pill">🪪 least-privilege IAM in every code review</span>
+    </div>
+  </section>
+
+  <!-- GOTCHAS -->
+  <section class="reveal">
+    <h2><span class="ic">⚠️</span>Gotchas that bite real builders</h2>
+    <ul class="gotchas">
+      <li>🤝 <b>Shared responsibility.</b> AWS locks the building; you lock your rooms. Running Bedrock doesn't secure <em>your</em> app or data.</li>
+      <li>🗝️ <b>Guardrails ≠ data security.</b> A topic filter won't encrypt your S3 bucket. You need both walls and filters.</li>
+      <li>🔑 <b>Never hardcode keys.</b> Secrets in code end up in git history. Use IAM roles and a secrets manager.</li>
+      <li>🎭 <b>Jailbreaks evolve.</b> People find new tricks to trick models. Update guardrails and test them like code.</li>
+      <li>🐛 <b>Config drift.</b> Someone "temporarily" opens a door and forgets. AWS Config catches the drift; re-check often.</li>
+      <li>🙈 <b>PII sneaks into prompts.</b> Users paste private data. Mask it at the gate with Guardrails PII handling.</li>
+    </ul>
+  </section>
+
+  <!-- TL;DR -->
+  <section id="tldr" class="reveal">
+    <h2><span class="ic">⭐</span>TL;DR — the castle in six lines</h2>
+    <ul class="tldr">
+      <li><b>Security</b> guards the doors (who gets in); <b>governance</b> writes the rules (what may happen).</li>
+      <li>Use <b>defense in depth</b> — many onion layers, so one crack never sinks the castle.</li>
+      <li>Give every guard the <b>one key they need</b>: least-privilege IAM roles, never hardcoded secrets.</li>
+      <li>Filter <b>both directions</b>: prompts coming in and answers going out, with Bedrock Guardrails.</li>
+      <li>Lock data with <b>KMS</b>, keep traffic in private corridors, and write everything into the <b>CloudTrail diary</b>.</li>
+      <li>Governance adds <b>human checks, budgets, and audit evidence</b> — and it's a full exam domain (AIF-C01).</li>
+    </ul>
+  </section>
+
+  <!-- FINAL -->
+  <section class="final reveal">
+    <h2><span class="ic">🏰</span>The whole story in one breath</h2>
+    <p class="formula">Walls + guards<span class="op">+</span>one-key-per-guard<span class="op">+</span>bag checks both ways<span class="op">+</span>a diary<span class="op">=</span><span class="res">an AI the whole kingdom can trust</span></p>
+    <p style="color: var(--muted);">That's <strong style="color:var(--moon)">Security &amp; Governance</strong> on AWS. 🎉</p>
+  </section>
+
+  <footer>Made with 💛 by Buffy · <a href="https://docs.aws.amazon.com/bedrock/latest/userguide/guardrails.html" target="_blank" rel="noopener">Bedrock Guardrails docs</a> · <a href="index.html">← back to the notebook</a></footer>
+</div>
+
+<script>
+  // scroll reveal (respect reduced motion)
+  const prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const items = document.querySelectorAll('.reveal');
+  if (prefersReduced || !('IntersectionObserver' in window)) {
+    items.forEach(el => el.classList.add('in'));
+  } else {
+    const io = new IntersectionObserver(entries => {
+      entries.forEach(e => { if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); } });
+    }, { threshold: 0.08 });
+    items.forEach(el => io.observe(el));
+  }
+</script>
+</body>
+</html>
