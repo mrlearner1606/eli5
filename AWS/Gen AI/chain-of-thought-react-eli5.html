@@ -3,588 +3,721 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>ELI5: Chain of Thought &amp; ReAct for AWS Gen AI Developers</title>
-<meta name="description" content="Chain of Thought and ReAct explained like you're five — from an AWS Generative AI Developer perspective.">
+<title>ELI5: Chain of Thought &amp; ReAct (Visual) — AWS Gen AI Developers</title>
+<meta name="description" content="A picture-first explainer of Chain of Thought and ReAct reasoning for AWS Generative AI developers, with interactive demos.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=Public+Sans:wght@400;500;600;700&family=Fira+Code:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;700;800&family=Caveat:wght@600;700&family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
 <style>
   :root{
-    --bg:#F5F3FB;
-    --bg2:#ECE8F8;
-    --panel:#FFFFFF;
-    --ink:#241E3D;
-    --dim:#5C5478;
-    --violet:#6C4BF4;
-    --violet-soft:#EDE7FF;
-    --teal:#0FA98E;
-    --teal-soft:#E1F7F1;
-    --amber:#E08A00;
-    --amber-soft:#FDF1DA;
-    --rose:#D9457A;
-    --line:#DCD6EE;
-    --mono:'Fira Code',monospace;
-    --radius:18px;
+    --board:#132C26;
+    --board-2:#0E241F;
+    --panel:#1B3E36;
+    --panel-2:#225046;
+    --chalk:#F3F8F4;
+    --dim:#A6C4B9;
+    --yellow:#FFD447;
+    --pink:#FF85A9;
+    --teal:#5FE3C8;
+    --blue:#8CC2FF;
+    --orange:#FFA24D;
+    --edge:#081A16;
+    --radius:22px;
   }
-  *{margin:0;padding:0;box-sizing:border-box;}
-  html{scroll-behavior:smooth;}
+  *{margin:0;padding:0;box-sizing:border-box}
+  html{scroll-behavior:smooth}
   body{
-    font-family:'Public Sans',system-ui,sans-serif;
-    background:
-      radial-gradient(circle at 12% 4%, rgba(108,75,244,.10), transparent 42%),
-      radial-gradient(circle at 92% 30%, rgba(15,169,142,.09), transparent 40%),
-      var(--bg);
-    color:var(--ink);
-    line-height:1.65;
-    -webkit-font-smoothing:antialiased;
+    font-family:'Nunito',system-ui,sans-serif;
+    color:var(--chalk);
+    line-height:1.55;
+    padding:0 14px 64px;
     overflow-x:hidden;
+    background-color:var(--board-2);
+    background-image:
+      radial-gradient(circle at 12% 4%, rgba(95,227,200,.10), transparent 42%),
+      radial-gradient(circle at 92% 22%, rgba(255,212,71,.08), transparent 40%),
+      linear-gradient(rgba(255,255,255,.035) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,255,255,.035) 1px, transparent 1px);
+    background-size:auto, auto, 26px 26px, 26px 26px;
   }
-  .wrap{max-width:960px;margin:0 auto;padding:0 20px 80px;}
+  .wrap{max-width:960px;margin:0 auto}
 
-  /* ---------- Nav ---------- */
-  nav{
-    position:sticky;top:0;z-index:50;
-    backdrop-filter:blur(12px);
-    background:rgba(245,243,251,.82);
-    border-bottom:1px solid var(--line);
-  }
-  nav .nav-inner{
-    max-width:960px;margin:0 auto;padding:10px 20px;
-    display:flex;align-items:center;gap:14px;overflow-x:auto;
-    scrollbar-width:none;
-  }
-  nav .nav-inner::-webkit-scrollbar{display:none;}
-  nav .brand{
-    font-family:var(--mono);font-size:.72rem;font-weight:600;
-    letter-spacing:.12em;text-transform:uppercase;color:var(--violet);
-    white-space:nowrap;padding-right:12px;border-right:1px solid var(--line);
-  }
-  nav a{
-    font-family:var(--mono);font-size:.72rem;letter-spacing:.06em;
-    text-transform:uppercase;color:var(--dim);text-decoration:none;
-    white-space:nowrap;padding:4px 2px;border-bottom:2px solid transparent;
-    transition:color .18s,border-color .18s;
-  }
-  nav a:hover{color:var(--violet);border-color:var(--violet);}
+  h1,h2,h3,.balloon b,.big{font-family:'Baloo 2',system-ui,sans-serif;line-height:1.1}
+  h1{font-size:clamp(2.1rem,7vw,3.6rem);font-weight:800;letter-spacing:-.5px}
+  h2{font-size:clamp(1.35rem,3.6vw,1.9rem);font-weight:800}
+  h3{font-size:1.08rem;font-weight:700}
+  .hand{font-family:'Caveat',cursive;font-size:1.4rem;color:var(--yellow);line-height:1.05}
+  .tiny{font-size:.86rem;color:var(--dim)}
+  p{color:var(--dim)}
+  b,strong{color:var(--chalk)}
+  mark{background:rgba(255,212,71,.22);color:var(--yellow);padding:1px 6px;border-radius:6px}
+  a{color:var(--teal)}
 
-  /* ---------- Hero ---------- */
-  header.hero{padding:64px 0 20px;text-align:center;position:relative;}
-  .kicker{
-    display:inline-block;font-family:var(--mono);font-size:.7rem;font-weight:600;
-    letter-spacing:.2em;text-transform:uppercase;color:var(--violet);
-    background:var(--violet-soft);border:1px solid #D7CBFF;
-    border-radius:999px;padding:6px 14px;margin-bottom:20px;
+  /* ---------- dock ---------- */
+  .dock{
+    position:sticky;top:0;z-index:40;
+    margin:0 -14px 22px;padding:9px 14px;
+    background:rgba(12,32,27,.92);
+    backdrop-filter:blur(8px);
+    border-bottom:2px dashed rgba(255,255,255,.16);
+    display:flex;gap:8px;align-items:center;overflow-x:auto;scrollbar-width:none;
   }
-  h1{
-    font-family:'Fraunces',Georgia,serif;font-weight:700;
-    font-size:clamp(1.9rem,5vw,3.1rem);line-height:1.1;
-    letter-spacing:-.01em;max-width:760px;margin:0 auto;
+  .dock::-webkit-scrollbar{display:none}
+  .brand{
+    font-family:'Baloo 2',sans-serif;font-weight:800;white-space:nowrap;
+    background:var(--yellow);color:#20180A;padding:5px 12px;border-radius:999px;font-size:.9rem;
   }
-  h1 em{font-style:normal;color:var(--violet);}
-  .hero p{
-    max-width:600px;margin:18px auto 0;font-size:1.12rem;color:var(--dim);
+  .dock a{
+    white-space:nowrap;text-decoration:none;color:var(--chalk);
+    font-size:.83rem;font-weight:700;border:2px solid rgba(255,255,255,.16);
+    padding:4px 11px;border-radius:999px;
   }
-  .hero p b{color:var(--ink);}
+  .dock a:hover{border-color:var(--teal);color:var(--teal)}
 
-  /* trace demo */
-  .trace{
-    margin:40px auto 6px;max-width:700px;text-align:left;
-    background:var(--panel);border:1px solid var(--line);
-    border-radius:var(--radius);padding:20px 22px;
-    box-shadow:0 24px 60px -34px rgba(36,30,61,.35);
-    position:relative;
+  /* ---------- shared card ---------- */
+  .card-sk{
+    background:var(--panel);
+    border:3px solid rgba(255,255,255,.15);
+    border-radius:var(--radius);
+    padding:18px;
+    box-shadow:8px 8px 0 rgba(0,0,0,.28);
   }
-  .trace::before{
-    content:"reasoning trace";position:absolute;top:-10px;left:20px;
-    font-family:var(--mono);font-size:.62rem;letter-spacing:.16em;
-    text-transform:uppercase;color:#fff;background:var(--violet);
-    padding:3px 10px;border-radius:6px;
+  .sec{margin:44px 0 16px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+  .num{
+    font-family:'Baloo 2',sans-serif;font-weight:800;font-size:1rem;
+    width:38px;height:38px;flex:0 0 38px;display:grid;place-items:center;border-radius:50%;
+    background:var(--teal);color:#062621;border:3px solid rgba(0,0,0,.25);
   }
-  .step{
-    display:flex;gap:14px;padding:12px 0;
-    border-bottom:1px dashed var(--line);
-  }
-  .step:last-child{border-bottom:0;}
-  .step .mark{
-    flex:0 0 auto;font-family:var(--mono);font-size:.68rem;font-weight:600;
-    width:66px;text-transform:uppercase;letter-spacing:.08em;padding-top:2px;
-  }
-  .step.thought .mark{color:var(--violet);}
-  .step.action .mark{color:var(--amber);}
-  .step.obs .mark{color:var(--teal);}
-  .step.ans .mark{color:var(--rose);}
-  .step .body{font-size:1rem;color:var(--dim);}
-  .step .body b{color:var(--ink);font-weight:600;}
-  .step .body code{
-    font-family:var(--mono);font-size:.85rem;background:var(--bg2);
-    border:1px solid var(--line);border-radius:6px;padding:1px 6px;color:var(--violet);
-  }
-  .pulse{animation:pulseIn .5s ease both;}
-  @keyframes pulseIn{from{opacity:0;transform:translateX(-8px);}to{opacity:1;transform:none;}}
+  .lbl{font-family:'Baloo 2',sans-serif;font-size:.78rem;letter-spacing:.16em;text-transform:uppercase;color:var(--teal)}
+  .k{font-family:'Caveat',cursive;font-size:1.25rem;color:var(--chalk)}
+  .grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px}
+  .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
 
-  /* ---------- Section base ---------- */
-  section{margin-top:64px;}
-  .sec-head{display:flex;align-items:baseline;gap:14px;margin-bottom:14px;}
-  .sec-num{
-    font-family:var(--mono);font-size:.72rem;font-weight:600;color:var(--violet);
-    letter-spacing:.1em;
+  .btn{
+    font-family:'Baloo 2',sans-serif;font-weight:800;font-size:.95rem;cursor:pointer;
+    background:var(--yellow);color:#20180A;border:3px solid rgba(0,0,0,.35);
+    padding:8px 16px;border-radius:999px;box-shadow:4px 4px 0 rgba(0,0,0,.35);
   }
-  h2{
-    font-family:'Fraunces',Georgia,serif;font-weight:700;
-    font-size:clamp(1.35rem,3vw,1.85rem);line-height:1.2;
-  }
-  .lede{font-size:1.08rem;color:var(--dim);max-width:720px;}
-  .lede b{color:var(--ink);}
+  .btn:hover{transform:translate(-1px,-1px)}
+  .btn:disabled{opacity:.55;cursor:default;transform:none}
+  .btn.ghost{background:transparent;color:var(--chalk);border-color:rgba(255,255,255,.3);box-shadow:none}
+  .btn.ghost:hover{border-color:var(--teal);color:var(--teal)}
 
-  .card{
-    background:var(--panel);border:1px solid var(--line);
-    border-radius:var(--radius);padding:26px 26px 24px;
-    margin-top:18px;
-    box-shadow:0 18px 44px -36px rgba(36,30,61,.4);
+  /* ---------- hero ---------- */
+  .hero{padding:8px 0 4px}
+  .back{
+    display:inline-block;text-decoration:none;font-size:.8rem;font-weight:800;
+    color:var(--dim);border-bottom:2px dashed rgba(255,255,255,.2);margin-bottom:10px;
   }
-  .card h3{
-    font-family:'Fraunces',Georgia,serif;font-size:1.18rem;font-weight:700;
-    margin-bottom:8px;
+  .back:hover{color:var(--teal)}
+  .oneliner{font-size:clamp(1.02rem,2.6vw,1.28rem);color:var(--chalk);max-width:640px;margin:10px 0 4px}
+
+  /* ---------- race ---------- */
+  .race{margin-top:22px}
+  .race-top{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
+  .q{
+    font-family:'Caveat',cursive;font-size:1.35rem;color:var(--chalk);
+    background:rgba(140,194,255,.1);border-left:4px solid var(--blue);
+    padding:8px 12px;border-radius:0 12px 12px 0;margin:12px 0 16px;
   }
-  .card p{font-size:1.03rem;color:var(--dim);margin-bottom:10px;}
-  .card p:last-child{margin-bottom:0;}
-  .card p b{color:var(--ink);}
-  .card code{
-    font-family:var(--mono);font-size:.83rem;background:var(--bg2);
-    border:1px solid var(--line);border-radius:5px;padding:1px 6px;color:var(--violet);
+  .lanes{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:14px}
+  .lane{background:var(--board);border:2px dashed rgba(255,255,255,.18);border-radius:16px;padding:12px}
+  .who{display:flex;align-items:center;gap:9px;margin-bottom:8px}
+  .ava{font-size:1.6rem;line-height:1}
+  .who small{display:block;font-size:.72rem;color:var(--dim);font-family:'Caveat',cursive;font-size:.95rem}
+  .trace{list-style:none;display:flex;flex-direction:column;gap:7px;min-height:44px}
+  .tline{
+    font-family:'Caveat',cursive;font-size:1.22rem;color:var(--chalk);
+    background:rgba(255,255,255,.05);border-radius:10px;padding:5px 10px;
+    opacity:0;transform:translateY(6px);transition:opacity .3s,transform .3s;
   }
-  .one-breath{
-    margin-top:14px;background:var(--violet-soft);
-    border-left:3px solid var(--violet);border-radius:0 10px 10px 0;
-    padding:12px 16px;font-size:.98rem;color:var(--ink);
+  .tline.on{opacity:1;transform:none}
+  #blurt .tline.on{background:rgba(255,133,169,.16);color:var(--pink)}
+  #thinker .tline.on{background:rgba(95,227,200,.14)}
+  #thinker .tline.on:last-child{background:rgba(255,212,71,.18);color:var(--yellow);font-weight:700}
+  .verdict{
+    margin-top:14px;background:var(--yellow);color:#20180A;border-radius:14px;
+    padding:10px 14px;font-family:'Baloo 2',sans-serif;font-weight:700;
+    transform:rotate(-.6deg);box-shadow:5px 5px 0 rgba(0,0,0,.3);
+  }
+  .verdict b{color:#20180A}
+
+  /* ---------- balloons ---------- */
+  .balloon{
+    position:relative;background:var(--chalk);color:#12241F;border-radius:16px;
+    padding:12px 14px;font-weight:600;box-shadow:5px 5px 0 rgba(0,0,0,.3);
+  }
+  .balloon:after{
+    content:"";position:absolute;left:26px;bottom:-11px;width:0;height:0;
+    border:11px solid transparent;border-top-color:var(--chalk);border-bottom:0;
+  }
+  .balloon b{color:#0E241F}
+  .balloon mark{background:#FFE9A3;color:#5A3D00}
+
+  /* ---------- CoT stepper ---------- */
+  .cookies{display:flex;flex-wrap:wrap;gap:4px;font-size:1.35rem;min-height:38px;margin:10px 0}
+  .cookies span{transition:opacity .3s,filter .3s}
+  .cookies span.eaten{opacity:.35;filter:grayscale(1);text-decoration:line-through}
+  .big{
+    font-size:1.5rem;font-weight:800;color:var(--yellow);min-height:34px;margin-top:8px;
+    opacity:0;transition:opacity .3s;
+  }
+  .big.on{opacity:1}
+
+  /* ---------- ReAct wheel ---------- */
+  .wheelwrap{display:grid;grid-template-columns:minmax(200px,240px) 1fr;gap:18px;align-items:center}
+  @media (max-width:640px){.wheelwrap{grid-template-columns:1fr}}
+  .wheel{width:100%;height:auto;display:block}
+  .wheel .ring{fill:none;stroke:rgba(255,255,255,.22);stroke-width:3;stroke-dasharray:9 9}
+  .wheel .node circle{fill:var(--board);stroke:rgba(255,255,255,.3);stroke-width:2.5;cursor:pointer}
+  .wheel .node text{font-family:'Nunito',sans-serif;font-size:11px;font-weight:800;fill:var(--chalk);pointer-events:none}
+  .wheel .node .ic{font-size:20px}
+  .wheel .node.active circle{fill:var(--teal);stroke:#062621}
+  .wheel .node.active text{fill:#062621}
+  .wheel .orbiter{transform-box:fill-box;transform-origin:center;animation:orbit 11s linear infinite}
+  @keyframes orbit{
+    from{transform:rotate(0deg) translateX(78px) rotate(0deg)}
+    to{transform:rotate(360deg) translateX(78px) rotate(-360deg)}
   }
 
-  /* ---------- Side by side ---------- */
-  .split{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-top:18px;}
-  .split .col{
-    background:var(--panel);border:1px solid var(--line);
-    border-radius:var(--radius);padding:22px;position:relative;overflow:hidden;
+  /* ---------- storyboard strip ---------- */
+  .strip{display:flex;align-items:stretch;gap:8px;flex-wrap:wrap}
+  .panel{
+    flex:1 1 140px;background:var(--board);border:2px solid rgba(255,255,255,.16);
+    border-radius:14px;padding:10px;text-align:center;
   }
-  .split .col .lbl{
-    font-family:var(--mono);font-size:.64rem;letter-spacing:.16em;
-    text-transform:uppercase;font-weight:600;display:block;margin-bottom:10px;
-  }
-  .split .blurt{border-color:#EFD3DE;}
-  .split .blurt .lbl{color:var(--rose);}
-  .split .blurt{background:linear-gradient(180deg,#FFF6F9,var(--panel));}
-  .split .think{border-color:#D7CBFF;}
-  .split .think .lbl{color:var(--violet);}
-  .split .think{background:linear-gradient(180deg,var(--violet-soft),var(--panel));}
-  .split .col blockquote{
-    font-size:.98rem;color:var(--dim);border:0;font-style:normal;
-  }
-  .split .col blockquote em{color:var(--ink);font-style:italic;}
+  .panel .ic{font-size:1.7rem;display:block}
+  .panel b{display:block;font-family:'Baloo 2',sans-serif;font-size:.95rem;margin:2px 0}
+  .panel small{font-family:'Caveat',cursive;font-size:1.05rem;color:var(--dim);display:block;line-height:1.15}
+  .arw{align-self:center;color:var(--pink);font-size:1.4rem;font-family:'Baloo 2',sans-serif}
+  .panel.done{border-color:var(--teal);background:rgba(95,227,200,.1)}
 
-  /* ---------- ReAct loop ---------- */
-  .loop-wrap{display:grid;grid-template-columns:1fr 1fr;gap:24px;align-items:center;margin-top:18px;}
-  .loop{
-    position:relative;width:100%;max-width:320px;aspect-ratio:1;
-    margin:0 auto;
+  /* ---------- picker ---------- */
+  .pick-btns{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}
+  .chipbtn{
+    font-family:'Nunito',sans-serif;font-weight:800;font-size:.85rem;cursor:pointer;
+    background:transparent;color:var(--chalk);border:2px solid rgba(255,255,255,.22);
+    padding:7px 13px;border-radius:999px;
   }
-  .loop svg{width:100%;height:100%;}
-  .loop .spin{transform-origin:160px 160px;animation:spin 14s linear infinite;}
-  @keyframes spin{to{transform:rotate(360deg);}}
-  .loop .node-c{
-    position:absolute;width:34%;text-align:center;
-    font-family:var(--mono);font-size:.68rem;font-weight:600;
-    letter-spacing:.06em;text-transform:uppercase;line-height:1.35;
+  .chipbtn[aria-pressed="true"]{background:var(--pink);border-color:var(--pink);color:#2A0A15}
+  .winner{
+    font-family:'Baloo 2',sans-serif;font-weight:800;font-size:1.25rem;
+    display:inline-block;padding:5px 14px;border-radius:999px;margin-bottom:10px;
   }
-  .loop .node-c span{display:block;font-family:'Public Sans',sans-serif;
-    text-transform:none;letter-spacing:0;font-weight:500;font-size:.72rem;color:var(--dim);}
-  .loop .n1{top:6%;left:33%;color:var(--violet);}
-  .loop .n2{bottom:22%;right:0;color:var(--amber);}
-  .loop .n3{bottom:22%;left:0;color:var(--teal);}
-  .loop-legend{display:flex;flex-direction:column;gap:12px;}
-  .leg{
-    padding:14px 16px;border:1px solid var(--line);border-radius:12px;
-    background:var(--panel);border-left:4px solid var(--violet);
-  }
-  .leg.a{border-left-color:var(--amber);}
-  .leg.o{border-left-color:var(--teal);}
-  .leg b{display:block;font-family:var(--mono);font-size:.7rem;letter-spacing:.1em;
-    text-transform:uppercase;margin-bottom:4px;color:var(--violet);}
-  .leg.a b{color:var(--amber);}
-  .leg.o b{color:var(--teal);}
-  .leg{color:var(--dim);font-size:.95rem;}
+  .w-prompt{background:var(--blue);color:#0A1B31}
+  .w-cot{background:var(--teal);color:#062621}
+  .w-react{background:var(--orange);color:#2B1400}
 
-  /* ---------- Table ---------- */
-  .tbl-scroll{overflow-x:auto;margin-top:18px;border:1px solid var(--line);border-radius:14px;}
-  table{border-collapse:collapse;width:100%;min-width:660px;background:var(--panel);}
-  th,td{padding:14px 16px;text-align:left;font-size:.94rem;border-bottom:1px solid var(--line);}
-  thead th{
-    font-family:var(--mono);font-size:.68rem;letter-spacing:.1em;text-transform:uppercase;
-    color:var(--dim);background:var(--bg2);
+  /* ---------- AWS bricks ---------- */
+  .bricks{display:grid;grid-template-columns:repeat(auto-fit,minmax(215px,1fr));gap:12px}
+  .brick{
+    background:var(--board);border:2px solid rgba(255,255,255,.16);border-radius:16px;padding:12px;
+    display:flex;gap:10px;align-items:flex-start;transition:transform .18s,border-color .18s;
   }
-  tbody tr:last-child td{border-bottom:0;}
-  td:first-child{font-weight:600;color:var(--ink);}
-  td{color:var(--dim);}
-  .yes{color:var(--teal);font-weight:600;}
-  .no{color:var(--rose);font-weight:600;}
+  .brick:hover{transform:translateY(-4px) rotate(-.5deg);border-color:var(--yellow)}
+  .brick .em{font-size:1.5rem;line-height:1}
+  .brick b{display:block;font-family:'Baloo 2',sans-serif;font-size:.96rem;color:var(--chalk)}
+  .brick small{font-size:.83rem;color:var(--dim);display:block}
+  .flow{
+    display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:14px;
+    background:rgba(140,194,255,.08);border:2px dashed rgba(140,194,255,.4);border-radius:16px;padding:12px;
+  }
+  .fbox{
+    background:var(--panel-2);border-radius:12px;padding:7px 11px;font-weight:800;font-size:.85rem;
+    border:2px solid rgba(255,255,255,.14);white-space:nowrap;
+  }
+  .farw{color:var(--yellow);font-weight:800}
 
-  /* ---------- AWS grid ---------- */
-  .aws{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:16px;margin-top:18px;}
-  .svc{
-    background:var(--panel);border:1px solid var(--line);border-radius:14px;
-    padding:20px;border-top:3px solid var(--violet);
+  /* ---------- badges ---------- */
+  .badges{display:flex;gap:10px;flex-wrap:wrap}
+  .badge{
+    background:var(--panel-2);border:2px solid rgba(255,255,255,.16);border-radius:14px;
+    padding:10px 14px;font-weight:700;font-size:.9rem;
   }
-  .svc.t{border-top-color:var(--teal);}
-  .svc.a{border-top-color:var(--amber);}
-  .svc.r{border-top-color:var(--rose);}
-  .svc .name{
-    font-family:var(--mono);font-size:.78rem;font-weight:600;color:var(--ink);
-    display:block;margin-bottom:6px;
-  }
-  .svc p{font-size:.95rem;color:var(--dim);}
+  .badge span{display:block;font-family:'Caveat',cursive;font-size:1rem;color:var(--dim);font-weight:600}
 
-  /* ---------- Gotchas ---------- */
-  .gotchas{display:grid;gap:12px;margin-top:18px;}
-  .got{
-    display:flex;gap:14px;background:var(--amber-soft);
-    border:1px solid #F3DFB8;border-radius:12px;padding:16px 18px;
+  /* ---------- sticky notes ---------- */
+  .notes{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px;margin-top:6px}
+  .note{
+    border-radius:6px 16px 6px 16px;padding:14px 15px;color:#20180A;
+    box-shadow:0 10px 20px rgba(0,0,0,.35);
   }
-  .got .ic{font-size:1.15rem;line-height:1.4;}
-  .got p{font-size:.96rem;color:#6b5320;}
-  .got p b{color:#4a380f;}
+  .note:nth-child(odd){transform:rotate(-1.4deg)}
+  .note:nth-child(even){transform:rotate(1.2deg)}
+  .note b{display:block;font-family:'Baloo 2',sans-serif;color:#20180A;font-size:1rem;margin-bottom:2px}
+  .note p{color:#33290F;font-size:.88rem;font-weight:600}
+  .n-y{background:var(--yellow)}
+  .n-p{background:var(--pink)}
+  .n-t{background:var(--teal)}
+  .n-b{background:var(--blue)}
+  .n-o{background:var(--orange)}
 
-  /* ---------- TLDR ---------- */
+  /* ---------- tldr ---------- */
   .tldr{
-    margin-top:64px;background:linear-gradient(150deg,#2A2246,#3B2E70);
-    color:#fff;border-radius:22px;padding:32px 30px;
-    box-shadow:0 30px 70px -40px rgba(42,34,70,.8);
+    margin-top:40px;background:linear-gradient(135deg,#1D4A40,#123027);
+    border:3px solid var(--yellow);border-radius:26px;padding:20px;
+    box-shadow:10px 10px 0 rgba(0,0,0,.3);
   }
-  .tldr h2{color:#fff;}
-  .tldr .kicker{background:rgba(255,255,255,.12);border-color:rgba(255,255,255,.25);color:#C9BBFF;}
-  .tldr ol{list-style:none;margin-top:18px;display:grid;gap:12px;}
-  .tldr li{display:flex;gap:12px;font-size:1rem;color:#DCD6F5;}
-  .tldr li b{color:#fff;}
-  .tldr li .n{
-    font-family:var(--mono);font-size:.72rem;font-weight:600;color:#C9BBFF;
-    flex:0 0 auto;padding-top:3px;
+  .tldr ol{list-style:none;display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:10px;margin-top:12px}
+  .tldr li{
+    font-family:'Caveat',cursive;font-size:1.28rem;color:var(--chalk);
+    background:rgba(255,255,255,.06);border-radius:12px;padding:7px 12px;display:flex;gap:9px;
+  }
+  .tldr li span.n{
+    font-family:'Baloo 2',sans-serif;font-size:.85rem;font-weight:800;background:var(--yellow);color:#20180A;
+    width:22px;height:22px;flex:0 0 22px;border-radius:50%;display:grid;place-items:center;margin-top:3px;
   }
 
-  footer{
-    margin-top:56px;text-align:center;font-family:var(--mono);
-    font-size:.75rem;color:var(--dim);letter-spacing:.04em;
-  }
-  footer a{color:var(--violet);text-decoration:none;}
-  footer a:hover{text-decoration:underline;}
+  footer{margin-top:34px;padding-top:18px;border-top:2px dashed rgba(255,255,255,.16);font-size:.85rem;color:var(--dim)}
+  footer a{font-weight:700}
 
-  /* scroll reveal */
-  .reveal{opacity:0;transform:translateY(18px);transition:opacity .6s ease,transform .6s ease;}
-  .reveal.in{opacity:1;transform:none;}
+  /* ---------- reveal ---------- */
+  .reveal{opacity:0;transform:translateY(16px);transition:opacity .5s ease,transform .5s ease}
+  .reveal.in{opacity:1;transform:none}
 
-  @media (max-width:720px){
-    .split{grid-template-columns:1fr;}
-    .loop-wrap{grid-template-columns:1fr;}
-    .trace{padding:18px 16px;}
-    .step .mark{width:56px;font-size:.6rem;}
-  }
-  @media (prefers-reduced-motion:reduce){
-    html{scroll-behavior:auto;}
-    .reveal{opacity:1;transform:none;transition:none;}
-    .loop .spin{animation:none;}
-    .pulse{animation:none;}
+  @media (prefers-reduced-motion: reduce){
+    html{scroll-behavior:auto}
+    .reveal{opacity:1;transform:none;transition:none}
+    .wheel .orbiter{animation:none;transform:translateX(78px)}
+    .brick:hover{transform:none}
+    .tline{transition:none}
   }
 </style>
 </head>
 <body>
-
-<nav>
-  <div class="nav-inner">
-    <span class="brand">CoT · ReAct</span>
-    <a href="#why">Why</a>
-    <a href="#cot">Chain of Thought</a>
-    <a href="#react">ReAct</a>
-    <a href="#compare">Compare</a>
-    <a href="#aws">On AWS</a>
-    <a href="#cert">Cert &amp; jobs</a>
-    <a href="#gotchas">Gotchas</a>
-  </div>
-</nav>
-
 <div class="wrap">
 
-  <!-- HERO -->
-  <header class="hero">
-    <span class="kicker">AWS Gen AI · Explained like you're 5</span>
-    <h1>The model that <em>shows its work</em> gets the answer right.</h1>
-    <p>That's the whole idea behind <b>Chain of Thought</b> and <b>ReAct</b> — two names for one promise: <b>think in steps before you speak.</b></p>
+  <nav class="dock" aria-label="Sections">
+    <span class="brand">CoT · ReAct</span>
+    <a href="#why">1 · Why</a>
+    <a href="#cot">2 · Chain of Thought</a>
+    <a href="#react">3 · ReAct</a>
+    <a href="#pick">4 · Pick one</a>
+    <a href="#aws">5 · On AWS</a>
+    <a href="#cert">6 · Cert &amp; jobs</a>
+    <a href="#traps">7 · Traps</a>
+    <a href="#tldr">TL;DR</a>
+  </nav>
 
-    <div class="trace" id="trace">
-      <div class="step thought" data-step><span class="mark">Thought</span><span class="body">The customer asked for the cheapest flight. I should first <b>look up available flights</b>.</span></div>
-      <div class="step action" data-step><span class="mark">Action</span><span class="body">Call the tool <code>search_flights("BLR → DEL")</code></span></div>
-      <div class="step obs" data-step><span class="mark">Observe</span><span class="body">Tool returned 3 flights: ₹4,200 · ₹5,900 · ₹7,100</span></div>
-      <div class="step thought" data-step><span class="mark">Thought</span><span class="body">₹4,200 is the cheapest. I have <b>enough to answer</b> now.</span></div>
-      <div class="step ans" data-step><span class="mark">Final</span><span class="body">“The cheapest is the 6:10 AM flight at <b>₹4,200</b>.”</span></div>
-    </div>
-    <p style="font-size:.92rem;margin-top:14px;">↑ A real reasoning trace. <b>Thought → Action → Observation → repeat → Answer.</b></p>
+  <!-- ============ HERO ============ -->
+  <header class="hero">
+    <a class="back" href="../../index.html">← back to the notebook</a>
+    <span class="lbl">AWS Gen AI · picture-first lesson</span>
+    <h1>Chain of Thought<br>&amp; ReAct</h1>
+    <p class="oneliner">
+      Like <b>showing your work</b> in a maths test 🧮 — and then
+      <b>getting up to fetch the ruler</b> 📏 when the answer isn't in your head.
+    </p>
+    <p class="tiny">Two habits that make a model smarter without training it. Tap the buttons — nothing here is a wall of text.</p>
+
+    <section class="card-sk race" aria-label="Race demo">
+      <div class="race-top">
+        <h3>🏁 Same question, two robots</h3>
+        <button class="btn" id="raceBtn">Race them ▶</button>
+      </div>
+      <p class="q">“Maya has 23 apples 🍎, gives 9 away, then buys 12 more. How many now?”</p>
+      <div class="lanes">
+        <div class="lane">
+          <div class="who">
+            <span class="ava" aria-hidden="true">😤</span>
+            <div><b>Blurt bot</b><small>prompt: “just answer”</small></div>
+          </div>
+          <ol class="trace" id="blurt">
+            <li class="tline" data-t="220">💥 “14!” — fast… and wrong</li>
+          </ol>
+        </div>
+        <div class="lane">
+          <div class="who">
+            <span class="ava" aria-hidden="true">🧠</span>
+            <div><b>Thinker bot</b><small>prompt: “let's think step by step”</small></div>
+          </div>
+          <ol class="trace" id="thinker">
+            <li class="tline" data-t="800">🤔 23 − 9 = 14</li>
+            <li class="tline" data-t="1400">🤔 14 + 12 = 26</li>
+            <li class="tline" data-t="2000">✅ 26 apples</li>
+          </ol>
+        </div>
+      </div>
+      <div class="verdict" id="raceVerdict" hidden>🏆 Slower but right → that's <b>Chain of Thought</b>.</div>
+    </section>
   </header>
 
-  <!-- WHY -->
-  <section id="why" class="reveal">
-    <div class="sec-head"><span class="sec-num">01</span><h2>Why this exists: the model was blurting</h2></div>
-    <p class="lede">A language model predicts the next word. If you ask a hard question and it must answer <b>immediately</b>, it has only one shot — and it often guesses.</p>
-
-    <div class="split">
-      <div class="col blurt">
-        <span class="lbl">✗ Zero-shot (blurts)</span>
-        <blockquote>“Q: A shop had 23 apples, sold 9, got 12 more. How many?<br><br>
-        <em>A: 30</em>”</blockquote>
-      </div>
-      <div class="col think">
-        <span class="lbl">✓ Chain of Thought (shows work)</span>
-        <blockquote>“Q: A shop had 23 apples…<br><br>
-        <em>Let me work through it. 23 − 9 = 14. Then 14 + 12 = 26. So the answer is 26.</em>”</blockquote>
-      </div>
+  <!-- ============ 1 WHY ============ -->
+  <section id="why">
+    <div class="sec reveal">
+      <span class="num">1</span><h2>Why bother?</h2><span class="hand">the model guesses too fast</span>
     </div>
-
-    <div class="card">
-      <h3>🧸 The kid version</h3>
-      <p>Think of a maths test. One kid writes the answer straight away and gets it wrong. The other kid <b>writes the steps down</b> — and by writing them, each small step becomes easy.</p>
-      <p>The model is exactly the same. <b>Every token it writes becomes context for the next token.</b> So if it writes “let me add these first…”, that written-out thought is now something it can build on, instead of having to hold everything in its head.</p>
-      <div class="one-breath">💡 <b>In one breath:</b> Chain of Thought turns one giant leap into a staircase of small, checkable steps. That is why accuracy on reasoning tasks goes up.</div>
+    <div class="grid2">
+      <div class="card-sk reveal">
+        <p class="k">Big models are 🎲 guess machines</p>
+        <p class="tiny">They write the next word. One jump from question to answer = one chance to slip. Give it room to write the steps and each step keeps the next one honest.</p>
+        <div class="balloon" style="margin-top:12px">“Now I need a way to <b>check myself</b>.”</div>
+      </div>
+      <div class="card-sk reveal">
+        <p class="k">Two ways to think harder</p>
+        <div class="strip" style="margin-top:8px">
+          <div class="panel">
+            <span class="ic" aria-hidden="true">🪜</span><b>Chain of Thought</b><small>think in steps</small>
+          </div>
+          <span class="arw" aria-hidden="true">+</span>
+          <div class="panel">
+            <span class="ic" aria-hidden="true">🔧</span><b>ReAct</b><small>steps + using tools</small>
+          </div>
+        </div>
+      </div>
     </div>
   </section>
 
-  <!-- COT -->
-  <section id="cot" class="reveal">
-    <div class="sec-head"><span class="sec-num">02</span><h2>Chain of Thought: prompt it, don't train it</h2></div>
-    <p class="lede">CoT is <b>a prompting technique, not a model you fine-tune</b>. You don't change the weights — you change what you ask for.</p>
-
-    <div class="card">
-      <h3>Two ways to switch it on</h3>
-      <p><b>1. Zero-shot CoT</b> — just add one magic line to your prompt:</p>
-      <p><code>Let's think step by step.</code></p>
-      <p><b>2. Few-shot CoT</b> — show 1–3 worked examples where the reasoning is written out, then give the real question. The model copies the <em>shape</em> of your example.</p>
-      <div class="one-breath">💡 <b>In one breath:</b> zero-shot CoT is one sentence added to your prompt. Few-shot CoT is a handful of worked examples. Neither requires training.</div>
+  <!-- ============ 2 CoT ============ -->
+  <section id="cot">
+    <div class="sec reveal">
+      <span class="num">2</span><h2>Chain of Thought</h2><span class="hand">= “show your work”</span>
     </div>
+    <div class="grid2">
+      <div class="card-sk reveal">
+        <p class="k">The whole trick is one sentence</p>
+        <div class="balloon" style="margin-top:10px">Add <mark>“Let's think step by step.”</mark> to your prompt.</div>
+        <p class="tiny" style="margin-top:20px">No new model. No training. Same model, extra sentence. You can also <b>show a worked example</b> (few-shot) if the steps are weird.</p>
+        <p class="tiny">Real chain examples come from your code or your Knowledge Base — not from the model's imagination.</p>
+      </div>
 
-    <div class="card">
-      <h3>⚠️ The part developers forget</h3>
-      <p>The chain is <b>working memory, not user-facing output</b>. If you return the raw reasoning to your app, you're paying tokens, leaking how your system works, and exposing the model's wrong turns.</p>
-      <p><b>Pattern:</b> ask the model to reason inside a clearly-marked block, then ask it to output only the final answer (or parse just the answer field). Bedrock gives you structures for this — a well-defined output schema, or a separate final-answer turn.</p>
+      <div class="card-sk reveal">
+        <p class="k">Tap through a real CoT answer</p>
+        <p class="tiny">“3 trays, 4 cookies each. 2 get eaten.”</p>
+        <div class="cookies" id="cookies" aria-hidden="true"></div>
+        <ol class="trace" id="cotTrace"></ol>
+        <div class="row" style="margin-top:10px">
+          <button class="btn" id="cotNext">Next step ▶</button>
+          <button class="btn ghost" id="cotReset">↺ Reset</button>
+        </div>
+        <div class="big" id="cotAnswer">= 10 cookies ✅</div>
+      </div>
     </div>
   </section>
 
-  <!-- REACT -->
-  <section id="react" class="reveal">
-    <div class="sec-head"><span class="sec-num">03</span><h2>ReAct: Chain of Thought that can <em>use tools</em></h2></div>
-    <p class="lede">Plain CoT is smart but trapped inside its own head. It can't check the weather, query a database, or read your ticket system. <b>ReAct = Reasoning + Acting.</b> It lets the model think, <b>do something</b>, look at what happened, and think again.</p>
-
-    <div class="loop-wrap">
-      <div class="loop" role="img" aria-label="The ReAct loop: Thought leads to Action, Action leads to Observation, Observation leads back to Thought until a final answer">
-        <svg viewBox="0 0 320 320" aria-hidden="true">
-          <circle cx="160" cy="160" r="112" fill="none" stroke="var(--line)" stroke-width="2" stroke-dasharray="6 6"/>
-          <g class="spin">
-            <circle cx="160" cy="160" r="112" fill="none" stroke="var(--violet)" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="80 620"/>
-            <circle cx="160" cy="160" r="112" fill="none" stroke="var(--teal)" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="70 630" stroke-dashoffset="-215"/>
-            <circle cx="160" cy="160" r="112" fill="none" stroke="var(--amber)" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="70 630" stroke-dashoffset="-430"/>
+  <!-- ============ 3 ReAct ============ -->
+  <section id="react">
+    <div class="sec reveal">
+      <span class="num">3</span><h2>ReAct</h2><span class="hand">Reason + Act = think, use a tool, look, repeat</span>
+    </div>
+    <div class="card-sk reveal">
+      <div class="wheelwrap">
+        <svg class="wheel" viewBox="0 0 220 220" role="img" aria-label="The ReAct loop: think, act, look, repeat">
+          <circle class="ring" cx="110" cy="110" r="80"/>
+          <text x="110" y="106" text-anchor="middle" font-family="Baloo 2, sans-serif" font-size="13" font-weight="800" fill="#A6C4B9">ReAct</text>
+          <text x="110" y="122" text-anchor="middle" font-family="Baloo 2, sans-serif" font-size="11" fill="#A6C4B9">loop</text>
+          <g class="orbiter"><text x="110" y="110" text-anchor="middle" font-size="18">✋</text></g>
+          <g class="node active" data-k="think" tabindex="0" role="button" aria-label="Thought">
+            <circle cx="110" cy="30" r="28"/><text class="ic" x="110" y="32" text-anchor="middle">🤔</text>
+            <text x="110" y="52" text-anchor="middle">Think</text>
           </g>
-          <circle cx="160" cy="160" r="58" fill="var(--bg2)" stroke="var(--line)"/>
-          <text x="160" y="152" text-anchor="middle" font-family="Fira Code, monospace" font-size="13" fill="var(--ink)">loop</text>
-          <text x="160" y="172" text-anchor="middle" font-family="Fira Code, monospace" font-size="10" fill="var(--dim)">until done</text>
+          <g class="node" data-k="act" tabindex="0" role="button" aria-label="Action">
+            <circle cx="190" cy="110" r="28"/><text class="ic" x="190" y="112" text-anchor="middle">🔧</text>
+            <text x="190" y="132" text-anchor="middle">Act</text>
+          </g>
+          <g class="node" data-k="look" tabindex="0" role="button" aria-label="Observation">
+            <circle cx="110" cy="190" r="28"/><text class="ic" x="110" y="192" text-anchor="middle">👀</text>
+            <text x="110" y="212" text-anchor="middle">Look</text>
+          </g>
+          <g class="node" data-k="repeat" tabindex="0" role="button" aria-label="Repeat">
+            <circle cx="30" cy="110" r="28"/><text class="ic" x="30" y="112" text-anchor="middle">🔁</text>
+            <text x="30" y="132" text-anchor="middle">Repeat</text>
+          </g>
         </svg>
-        <div class="node-c n1">Thought<span>reason about it</span></div>
-        <div class="node-c n2">Action<span>call a tool</span></div>
-        <div class="node-c n3">Observation<span>see the result</span></div>
-      </div>
-
-      <div class="loop-legend">
-        <div class="leg">
-          <b>Thought</b>The model writes its reasoning — what it knows, what's missing, and which tool would help.
-        </div>
-        <div class="leg a">
-          <b>Action</b>It emits a tool call in a fixed format: e.g. <code>search_orders({"id":"A19"})</code>.
-        </div>
-        <div class="leg o">
-          <b>Observation</b>Your code runs the tool and feeds the result straight back into the model's context.
+        <div>
+          <div class="balloon" id="wheelBubble"><b>Think 🤔</b> — “What do I actually need to know?”</div>
+          <p class="tiny" style="margin-top:22px">Tap a bubble on the wheel. Each turn = one <b>Thought</b>, one <b>Action</b>, one <b>Observation</b>.</p>
         </div>
       </div>
-    </div>
 
-    <div class="card">
-      <h3>🧸 Kid version</h3>
-      <p>CoT is a kid thinking out loud. ReAct is that same kid <b>allowed to open the book, check the map, or ask the teacher</b>, then carry on thinking with the new fact in hand — and repeat until the answer is solid.</p>
-      <p><b>The critical bit:</b> the model never runs your code. It only <em>asks</em>. Your orchestration layer executes the tool and pastes the output back in. That boundary is where security lives.</p>
-      <div class="one-breath">💡 <b>In one breath:</b> ReAct = CoT + a tool belt + a loop, and you (not the model) hold the belt.</div>
-    </div>
-  </section>
+      <h3 style="margin:20px 0 10px">🧾 A ReAct trace, as a comic strip</h3>
+      <div class="strip" id="strip">
+        <div class="panel"><span class="ic" aria-hidden="true">🤔</span><b>Thought</b><small>“Is my flight delayed?”</small></div>
+        <span class="arw" aria-hidden="true">→</span>
+        <div class="panel"><span class="ic" aria-hidden="true">🔧</span><b>Action</b><small>call flight-status API</small></div>
+        <span class="arw" aria-hidden="true">→</span>
+        <div class="panel"><span class="ic" aria-hidden="true">👀</span><b>Observation</b><small>“delayed 40 min”</small></div>
+        <span class="arw" aria-hidden="true">→</span>
+        <div class="panel"><span class="ic" aria-hidden="true">🤔</span><b>Thought</b><small>“then I must rebook”</small></div>
+        <span class="arw" aria-hidden="true">→</span>
+        <div class="panel done"><span class="ic" aria-hidden="true">✅</span><b>Final</b><small>tell user + rebook</small></div>
+      </div>
 
-  <!-- COMPARE -->
-  <section id="compare" class="reveal">
-    <div class="sec-head"><span class="sec-num">04</span><h2>Side by side</h2></div>
-    <div class="tbl-scroll">
-      <table>
-        <thead>
-          <tr><th>Technique</th><th>Thinks in steps?</th><th>Can use tools?</th><th>Typical cost</th><th>Best for</th></tr>
-        </thead>
-        <tbody>
-          <tr>
-            <td>Plain prompt</td>
-            <td class="no">No</td>
-            <td class="no">No</td>
-            <td>Lowest</td>
-            <td>Simple FAQs, summarising, rewriting, classification</td>
-          </tr>
-          <tr>
-            <td>Chain of Thought</td>
-            <td class="yes">Yes</td>
-            <td class="no">No</td>
-            <td>More output tokens</td>
-            <td>Maths, logic, planning, multi-step reasoning where the answer must be right</td>
-          </tr>
-          <tr>
-            <td>ReAct</td>
-            <td class="yes">Yes</td>
-            <td class="yes">Yes</td>
-            <td>Highest — many model round-trips</td>
-            <td>Tasks needing live data or side effects: book it, look it up, update the record</td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
-    <p class="lede" style="margin-top:14px;font-size:1rem;">Rule of thumb: <b>don't reach for ReAct when CoT will do.</b> Every loop adds latency and cost. Start simple; add tools only when the model genuinely needs outside facts.</p>
-  </section>
-
-  <!-- AWS -->
-  <section id="aws" class="reveal">
-    <div class="sec-head"><span class="sec-num">05</span><h2>Where this lives on AWS</h2></div>
-    <p class="lede">You rarely build the loop from scratch. AWS gives you the runtimes, and the reasoning pattern still describes what happens inside them.</p>
-
-    <div class="aws">
-      <div class="svc">
-        <span class="name">🤖 Amazon Bedrock Agents</span>
-        <p>The managed ReAct engine. You define an <b>action group</b> (an OpenAPI schema or a Lambda function) and a <b>knowledge base</b>. The agent builds the Thought → Action → Observation loop for you, calls your Lambda, and returns the final answer with a trace you can inspect.</p>
-      </div>
-      <div class="svc t">
-        <span class="name">🔗 Bedrock Knowledge Bases</span>
-        <p>Your retrieval tool. Instead of forcing the model to remember facts, the agent searches your documents and feeds the closest passages back — the Observation step, with embeddings doing the finding.</p>
-      </div>
-      <div class="svc a">
-        <span class="name">🧱 Bedrock Converse API</span>
-        <p>The plain building blocks. You own the loop: send messages, receive a <b>tool-use</b> request, run the tool yourself, append the result as a <code>toolResult</code>, and send again. Best when you need custom orchestration.</p>
-      </div>
-      <div class="svc r">
-        <span class="name">🛡️ Bedrock Guardrails</span>
-        <p>Your boundary layer. Grounding checks, denied topics, PII redaction, and a <b>contextual grounding score</b> that flags when an answer isn't supported by the retrieved source — crucial when a reasoning chain drifts.</p>
-      </div>
-      <div class="svc t">
-        <span class="name">🚀 Amazon Bedrock AgentCore</span>
-        <p>Runtime and tooling for longer-running, production agents: sessions, memory, identity, and isolated execution so your action tools run safely outside the model.</p>
-      </div>
-      <div class="svc">
-        <span class="name">🧪 Amazon SageMaker</span>
-        <p>When you want to go deeper: evaluate reasoning quality with your own harness, fine-tune a model to reason in your domain style, or host an open-weights reasoning model on your own endpoints.</p>
-      </div>
-      <div class="svc a">
-        <span class="name">🔁 AWS Step Functions</span>
-        <p>Deterministic orchestration around the model. Encode the multi-step workflow, retries, and human-approval gates as a state machine so a flaky tool call can't derail the whole task.</p>
-      </div>
-      <div class="svc r">
-        <span class="name">📊 Amazon CloudWatch &amp; model invocation logging</span>
-        <p>Log the full trace: prompt, thoughts, tool calls, observations, and final answer. This is how you debug a bad chain and how you prove, later, why the model said what it said.</p>
-      </div>
-    </div>
-
-    <div class="card">
-      <h3>A reference architecture (say it in an interview like this)</h3>
-      <p><b>Entry:</b> API Gateway → Lambda → Amazon Bedrock Agent. <b>Reasoning:</b> the agent runs a ReAct loop on a chosen foundation model. <b>Tools:</b> action-group Lambdas call your systems; a knowledge base supplies grounded context. <b>Guardrails:</b> Bedrock Guardrails filter and grounding-check the output. <b>Identity:</b> AgentCore keeps per-user sessions isolated. <b>Observability:</b> CloudWatch + invocation logging capture the full trace. <b>Approval:</b> Step Functions gates any irreversible action.</p>
-    </div>
-  </section>
-
-  <!-- CERT -->
-  <section id="cert" class="reveal">
-    <div class="sec-head"><span class="sec-num">06</span><h2>Certification &amp; job relevance</h2></div>
-    <p class="lede">Prompting techniques sit squarely in the AWS Gen AI certification objectives — and they're a standard interview screen for Gen AI developer roles.</p>
-
-    <div class="card">
-      <h3>What to be able to say out loud</h3>
-      <p><b>AWS Certified AI Practitioner (AIF-C01)</b> — foundational prompt-engineering domain: you should know what chain-of-thought prompting is, why it improves reasoning output, and that ReAct combines reasoning with tool use.</p>
-      <p><b>AWS Certified Machine Learning Engineer – Associate (MLA-C01)</b> — the applied Gen AI domain expects you to pick the right orchestration approach for a task, define Bedrock agents with action groups, and evaluate/guardrail the output.</p>
-      <p><b>Interview favourite:</b> “When would you use ReAct over plain CoT?” A strong answer names the cost/latency trade-off, the need for live or private data, the risk of runaway loops, and how you'd bound iterations and gate risky actions.</p>
-      <div class="one-breath">💡 <b>Sound like a pro:</b> talk about <b>the trace</b>, not just the answer. In production Gen AI, the ability to inspect and evaluate the reasoning path is the skill that's actually paid for.</div>
-    </div>
-  </section>
-
-  <!-- GOTCHAS -->
-  <section id="gotchas" class="reveal">
-    <div class="sec-head"><span class="sec-num">07</span><h2>Gotchas &amp; fine print</h2></div>
-    <div class="gotchas">
-      <div class="got">
-        <span class="ic">⏱️</span>
-        <p><b>Latency and cost compound.</b> A ReAct task with 8 loop iterations is 8+ model round-trips. Cap iterations, cache tool results, and route easy requests to plain prompts.</p>
-      </div>
-      <div class="got">
-        <span class="ic">🌀</span>
-        <p><b>Loops can spin.</b> Without a hard stop the agent may retry a failing tool forever. Always set a max-iteration ceiling and a fallback message.</p>
-      </div>
-      <div class="got">
-        <span class="ic">🔒</span>
-        <p><b>The model never executes anything.</b> It only requests. Your orchestrator runs the tool — so validate arguments, scope IAM permissions tightly, and never expose an action you wouldn't let a stranger call.</p>
-      </div>
-      <div class="got">
-        <span class="ic">🎭</span>
-        <p><b>A confident chain isn't a correct chain.</b> The model can reason beautifully to the wrong place. Ground answers in retrieved sources and use grounding/faithfulness checks rather than trusting the prose.</p>
-      </div>
-      <div class="got">
-        <span class="ic">🙈</span>
-        <p><b>Don't leak the chain.</b> Raw reasoning can expose system instructions and confuse end users. Return the answer, log the trace internally.</p>
-      </div>
-      <div class="got">
-        <span class="ic">🧩</span>
-        <p><b>Tools are harder than prompts.</b> Most project failures are vague tool descriptions and bad schemas, not bad models. Be precise about what each tool does and when to use it.</p>
+      <div class="flow" style="border-color:rgba(255,133,169,.45);background:rgba(255,133,169,.08)">
+        <span class="fbox">🧠 Model just <b>asks</b></span>
+        <span class="farw">⇢</span>
+        <span class="fbox">⚙️ <b>Your</b> code runs the tool</span>
+        <span class="farw">⇢</span>
+        <span class="fbox">📥 result goes back into the chat</span>
+        <span class="tiny" style="flex:1 1 100%">⚠️ The model never runs anything itself. You own every tool, and you can say “no”.</span>
       </div>
     </div>
   </section>
 
-  <!-- TLDR -->
-  <section class="tldr reveal">
-    <span class="kicker">TL;DR</span>
-    <h2>Seven things to carry away</h2>
+  <!-- ============ 4 PICK ONE ============ -->
+  <section id="pick">
+    <div class="sec reveal">
+      <span class="num">4</span><h2>Which one do I use?</h2><span class="hand">tap a task</span>
+    </div>
+    <div class="card-sk reveal">
+      <div class="pick-btns" id="pickBtns">
+        <button class="chipbtn" data-k="math" aria-pressed="true">🧮 Do this maths</button>
+        <button class="chipbtn" data-k="doc" aria-pressed="false">📄 Summarise a policy PDF</button>
+        <button class="chipbtn" data-k="live" aria-pressed="false">🛫 Check a live flight</button>
+        <button class="chipbtn" data-k="trip" aria-pressed="false">🗺️ Plan &amp; book a trip</button>
+      </div>
+      <div id="pickOut">
+        <span class="winner w-cot" id="pickWinner">🪜 Chain of Thought</span>
+        <p id="pickWhy" style="color:var(--chalk);font-weight:700">The steps are the answer — no outside data needed.</p>
+        <p class="tiny" id="pickAws">On AWS: plain prompt via the <b>Bedrock Converse API</b> — no tools, cheap and fast.</p>
+      </div>
+
+      <h3 style="margin:22px 0 10px">⚖️ Side by side</h3>
+      <div class="strip" style="align-items:stretch">
+        <div class="panel"><span class="ic" aria-hidden="true">💬</span><b>Plain prompt</b><small>1 shot, fastest, can blurt</small></div>
+        <div class="panel"><span class="ic" aria-hidden="true">🪜</span><b>CoT</b><small>writes steps, better on maths &amp; logic</small></div>
+        <div class="panel"><span class="ic" aria-hidden="true">🔧</span><b>ReAct</b><small>steps + tools, gets fresh facts</small></div>
+      </div>
+      <div class="tiny" style="margin-top:10px">Cost &amp; speed run the same way: 💬 cheapest → 🪜 more tokens → 🔧 most turns, highest latency.</div>
+    </div>
+  </section>
+
+  <!-- ============ 5 AWS ============ -->
+  <section id="aws">
+    <div class="sec reveal">
+      <span class="num">5</span><h2>On AWS, who does what?</h2><span class="hand">the toolbox</span>
+    </div>
+    <div class="bricks reveal">
+      <div class="brick"><span class="em" aria-hidden="true">🧭</span><div><b>Amazon Bedrock Agents</b><small>Runs the Thought→Action→Observation loop for you.</small></div></div>
+      <div class="brick"><span class="em" aria-hidden="true">🛠️</span><div><b>Action groups (OpenAPI + Lambda)</b><small>Your tools — described in a schema the agent can read.</small></div></div>
+      <div class="brick"><span class="em" aria-hidden="true">📚</span><div><b>Bedrock Knowledge Bases</b><small>Retrieval as a ready-made tool (RAG).</small></div></div>
+      <div class="brick"><span class="em" aria-hidden="true">🔁</span><div><b>Converse API (tool use)</b><small>Build your own loop; you send the <i>toolResult</i> back.</small></div></div>
+      <div class="brick"><span class="em" aria-hidden="true">🚧</span><div><b>Bedrock Guardrails</b><small>Fences: grounding check, denied topics, PII.</small></div></div>
+      <div class="brick"><span class="em" aria-hidden="true">🧰</span><div><b>AgentCore Runtime</b><small>Isolated session, memory and identity for long agents.</small></div></div>
+      <div class="brick"><span class="em" aria-hidden="true">🪜</span><div><b>Step Functions + Lambda</b><small>Deterministic glue around the fuzzy model steps.</small></div></div>
+      <div class="brick"><span class="em" aria-hidden="true">📓</span><div><b>CloudWatch + invocation logging</b><small>The flight recorder: full trace, for debugging.</small></div></div>
+      <div class="brick"><span class="em" aria-hidden="true">🖊️</span><div><b>Amazon SageMaker</b><small>Fine-tune / host your own model when needed.</small></div></div>
+    </div>
+
+    <div class="flow reveal">
+      <span class="fbox">🧑 User</span><span class="farw">→</span>
+      <span class="fbox">🧭 Bedrock Agent (the loop)</span><span class="farw">→</span>
+      <span class="fbox">🛠️ Lambda + 📚 KB</span><span class="farw">→</span>
+      <span class="fbox">🚧 Guardrails</span><span class="farw">→</span>
+      <span class="fbox">📓 CloudWatch trace</span>
+      <span class="tiny" style="flex:1 1 100%">Managed loop (Agents) or hand-built loop (Converse API) — same four boxes either way.</span>
+    </div>
+  </section>
+
+  <!-- ============ 6 CERT ============ -->
+  <section id="cert">
+    <div class="sec reveal">
+      <span class="num">6</span><h2>Cert &amp; job talk</h2><span class="hand">what they'll ask you</span>
+    </div>
+    <div class="grid2">
+      <div class="card-sk reveal">
+        <p class="k">Where it shows up</p>
+        <div class="badges" style="margin-top:10px">
+          <span class="badge">AIF-C01 <span>AI Practitioner — prompt &amp; reasoning basics</span></span>
+          <span class="badge">MLA-C01 <span>ML Engineer Associate — agents &amp; evaluation</span></span>
+          <span class="badge">Gen AI Dev job <span>agent design, tool/API design, tracing, cost control</span></span>
+        </div>
+      </div>
+      <div class="card-sk reveal">
+        <p class="k">The classic interview question</p>
+        <div class="balloon" style="margin-top:10px">“When is <b>ReAct</b> better than <b>CoT</b>?”</div>
+        <p style="margin-top:20px"><b>When the answer lives outside the model.</b> CoT thinks with what it already knows; ReAct goes and gets the missing fact — then keeps thinking.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 7 TRAPS ============ -->
+  <section id="traps">
+    <div class="sec reveal">
+      <span class="num">7</span><h2>Traps (the fine print)</h2>
+    </div>
+    <div class="notes reveal">
+      <div class="note n-y"><b>⏱️ More steps = more money</b><p>Every thought and tool call is billed tokens. Latency climbs too.</p></div>
+      <div class="note n-p"><b>🌀 Runaway loops</b><p>Cap steps and timeouts, or an agent will happily think forever.</p></div>
+      <div class="note n-t"><b>🙅 It never runs code</b><p>The model only asks. Your Lambda, API or KB does the doing.</p></div>
+      <div class="note n-b"><b>😎 Fluent ≠ correct</b><p>A neat chain can still be wrong. Read the trace, check the facts.</p></div>
+      <div class="note n-o"><b>🫥 Don't leak the chain</b><p>Steps can expose prompts, PII or internal tool names. Summarise, don't dump.</p></div>
+      <div class="note n-y"><b>🧨 Tools are the risk</b><p>Least-privilege IAM, schema validation, Guardrails on tool input &amp; output.</p></div>
+    </div>
+  </section>
+
+  <!-- ============ TL;DR ============ -->
+  <section class="tldr reveal" id="tldr">
+    <span class="lbl">One-minute recap</span>
+    <h2>TL;DR 🧠</h2>
     <ol>
-      <li><span class="n">01</span><span><b>Chain of Thought</b> = ask the model to reason in steps before answering. It's a prompting trick, not training.</span></li>
-      <li><span class="n">02</span><span><b>“Let's think step by step”</b> is the whole zero-shot version. Worked examples are the few-shot version.</span></li>
-      <li><span class="n">03</span><span><b>ReAct = Reasoning + Acting</b> — CoT plus tool calls plus a loop, until the model has enough to answer.</span></li>
-      <li><span class="n">04</span><span><b>Your code runs the tools, never the model.</b> That boundary is your security perimeter.</span></li>
-      <li><span class="n">05</span><span>On AWS, <b>Bedrock Agents</b> is managed ReAct; <b>Converse API</b> is DIY ReAct; <b>Knowledge Bases</b> is the retrieval tool; <b>Guardrails</b> is the safety net.</span></li>
-      <li><span class="n">06</span><span><b>Keep the reasoning internal.</b> Log the trace, return only the answer.</span></li>
-      <li><span class="n">07</span><span><b>Bound it.</b> Cap iterations, watch latency and cost, and never let a chain trigger a destructive action without a gate.</span></li>
+      <li><span class="n">1</span>🪜 CoT = think in steps. One sentence away.</li>
+      <li><span class="n">2</span>🔧 ReAct = steps + tools + looking at the result.</li>
+      <li><span class="n">3</span>💬 Prompt → 🪜 CoT → 🔧 ReAct. Cheapest first.</li>
+      <li><span class="n">4</span>🧭 Bedrock Agents = managed loop, action groups = tools.</li>
+      <li><span class="n">5</span>🔁 Converse API = you build and own the loop.</li>
+      <li><span class="n">6</span>📓 Always log the trace — that's how you debug reasoning.</li>
     </ol>
   </section>
 
   <footer>
-    Made with 💛 by Buffy · <a href="https://docs.aws.amazon.com/bedrock/latest/userguide/agents.html" target="_blank" rel="noopener">Bedrock Agents docs</a> · <a href="https://github.com/mrlearner1606/eli5" target="_blank" rel="noopener">main branch</a>
+    <p class="tiny">
+      Draw more arrows, write fewer words. Docs:
+      <a href="https://docs.aws.amazon.com/bedrock/latest/userguide/agents.html" target="_blank" rel="noopener">Amazon Bedrock Agents</a> ·
+      <a href="https://docs.aws.amazon.com/bedrock/latest/userguide/conversation-inference.html" target="_blank" rel="noopener">Converse API tool use</a> ·
+      <a href="https://github.com/mrlearner1606/eli5" target="_blank" rel="noopener">repo / index</a>
+    </p>
   </footer>
 </div>
 
 <script>
-  // scroll reveal
-  var revealEls = document.querySelectorAll('.reveal');
-  if ('IntersectionObserver' in window) {
+(function () {
+  var reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  /* ---------- scroll reveal ---------- */
+  var reveals = document.querySelectorAll('.reveal');
+  if (reduce || !('IntersectionObserver' in window)) {
+    reveals.forEach(function (el) { el.classList.add('in'); });
+  } else {
     var io = new IntersectionObserver(function (entries) {
       entries.forEach(function (e) {
         if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); }
       });
-    }, { threshold: 0.12 });
-    revealEls.forEach(function (el) { io.observe(el); });
-  } else {
-    revealEls.forEach(function (el) { el.classList.add('in'); });
+    }, { rootMargin: '-40px 0px -60px' });
+    reveals.forEach(function (el) { io.observe(el); });
   }
 
-  // animate the reasoning trace in sequence
-  (function () {
-    var steps = document.querySelectorAll('#trace [data-step]');
-    var reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    if (reduced) { steps.forEach(function (s) { s.classList.add('pulse'); }); return; }
-    steps.forEach(function (s, i) {
-      setTimeout(function () { s.classList.add('pulse'); }, 320 * i + 260);
+  /* ---------- hero race ---------- */
+  var raceBtn = document.getElementById('raceBtn');
+  var verdict = document.getElementById('raceVerdict');
+  var lanes = document.querySelectorAll('.trace .tline');
+  var timers = [];
+
+  function clearTimers() { timers.forEach(clearTimeout); timers = []; }
+
+  function runRace() {
+    clearTimers();
+    lanes.forEach(function (l) { l.classList.remove('on'); });
+    verdict.hidden = true;
+    if (reduce) {
+      lanes.forEach(function (l) { l.classList.add('on'); });
+      verdict.hidden = false;
+      return;
+    }
+    raceBtn.disabled = true;
+    lanes.forEach(function (l) {
+      timers.push(setTimeout(function () { l.classList.add('on'); }, parseInt(l.dataset.t, 10)));
     });
-  })();
+    timers.push(setTimeout(function () {
+      verdict.hidden = false;
+      raceBtn.disabled = false;
+    }, 2500));
+  }
+  raceBtn.addEventListener('click', runRace);
+
+  /* ---------- CoT stepper ---------- */
+  var cookiesEl = document.getElementById('cookies');
+  var cotTrace = document.getElementById('cotTrace');
+  var cotAnswer = document.getElementById('cotAnswer');
+  var cotNext = document.getElementById('cotNext');
+  var cotReset = document.getElementById('cotReset');
+  var COOKIE_STEPS = [
+    '🤔 3 trays × 4 cookies = 12',
+    '🤔 2 were eaten → 12 − 2',
+    '✅ Answer = 10 cookies'
+  ];
+  var step = 0;
+
+  function buildCookies() {
+    cookiesEl.innerHTML = '';
+    for (var i = 0; i < 12; i++) {
+      var s = document.createElement('span');
+      s.textContent = '🍪';
+      cookiesEl.appendChild(s);
+    }
+  }
+  buildCookies();
+
+  function renderCot() {
+    cotTrace.innerHTML = '';
+    for (var i = 0; i < step; i++) {
+      var li = document.createElement('li');
+      li.className = 'tline on';
+      li.textContent = COOKIE_STEPS[i];
+      cotTrace.appendChild(li);
+    }
+    var marks = cookiesEl.querySelectorAll('span');
+    marks.forEach(function (m, idx) { m.classList.toggle('eaten', step >= 2 && idx > 9); });
+    cotAnswer.classList.toggle('on', step >= 3);
+    cotNext.disabled = step >= COOKIE_STEPS.length;
+  }
+  cotNext.addEventListener('click', function () {
+    if (step < COOKIE_STEPS.length) { step++; renderCot(); }
+  });
+  cotReset.addEventListener('click', function () {
+    step = 0; renderCot();
+  });
+  renderCot();
+
+  /* ---------- ReAct wheel ---------- */
+  var BUBBLES = {
+    think: '<b>Think 🤔</b> — “What do I actually need to know?”',
+    act: '<b>Act 🔧</b> — ask a tool: Lambda, an API, or a Knowledge Base.',
+    look: '<b>Look 👀</b> — the real result comes back and lands in the chat.',
+    repeat: '<b>Repeat 🔁</b> — loop again until the answer is ready (or the budget is gone).'
+  };
+  var bubble = document.getElementById('wheelBubble');
+  var nodes = document.querySelectorAll('.wheel .node');
+  nodes.forEach(function (n) {
+    function activate() {
+      nodes.forEach(function (o) { o.classList.remove('active'); });
+      n.classList.add('active');
+      bubble.innerHTML = BUBBLES[n.dataset.k];
+    }
+    n.addEventListener('click', activate);
+    n.addEventListener('keydown', function (ev) {
+      if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); activate(); }
+    });
+  });
+
+  /* ---------- picker ---------- */
+  var PICK = {
+    math: {
+      win: '🪜 Chain of Thought', cls: 'w-cot',
+      why: 'The steps are the answer — nothing outside the model is needed.',
+      aws: 'On AWS: plain prompt via the <b>Bedrock Converse API</b> — no tools, cheap and fast.'
+    },
+    doc: {
+      win: '💬 Plain prompt', cls: 'w-prompt',
+      why: 'One pass over the page is usually enough — extra steps just add noise.',
+      aws: 'On AWS: Bedrock model + <b>Guardrails</b> so the summary stays on-topic.'
+    },
+    live: {
+      win: '🔧 ReAct', cls: 'w-react',
+      why: 'The answer changes every minute and lives in someone else’s system.',
+      aws: 'On AWS: <b>Bedrock Agent</b> + action group → Lambda hits the airline API.'
+    },
+    trip: {
+      win: '🔧 ReAct (with CoT steps)', cls: 'w-react',
+      why: 'Search, compare, decide, then book — many turns, several tools.',
+      aws: 'On AWS: Agent + <b>Knowledge Base</b> for policies + Step Functions for the booking.'
+    }
+  };
+  var pickWinner = document.getElementById('pickWinner');
+  var pickWhy = document.getElementById('pickWhy');
+  var pickAws = document.getElementById('pickAws');
+  var pickBtns = document.querySelectorAll('#pickBtns .chipbtn');
+  pickBtns.forEach(function (b) {
+    b.addEventListener('click', function () {
+      var d = PICK[b.dataset.k];
+      pickBtns.forEach(function (o) { o.setAttribute('aria-pressed', String(o === b)); });
+      pickWinner.textContent = d.win;
+      pickWinner.className = 'winner ' + d.cls;
+      pickWhy.textContent = d.why;
+      pickAws.innerHTML = d.aws;
+    });
+  });
+})();
 </script>
 </body>
 </html>
