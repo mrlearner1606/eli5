@@ -1,0 +1,716 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ELI5: Optimizing Foundation Model Deployment in SageMaker AI</title>
+<meta name="description" content="A kid-simple, visual-first explainer of how AWS Gen AI developers deploy and optimize foundation models on Amazon SageMaker AI inference.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=Inter:wght@400;600;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --void:#061220;
+    --panel:#0C1E2E;
+    --panel2:#0A1927;
+    --line:#1E3B52;
+    --line2:#2C5878;
+    --cyan:#22D3EE;
+    --amber:#FFB020;
+    --lime:#A3E635;
+    --pink:#F472B6;
+    --ink:#DCEEF9;
+    --dim:#7FA3BE;
+    --r:10px;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{
+    font-family:'Inter','Segoe UI',sans-serif;
+    background-color:var(--void);
+    background-image:
+      linear-gradient(rgba(34,211,238,.055) 1px,transparent 1px),
+      linear-gradient(90deg,rgba(34,211,238,.055) 1px,transparent 1px),
+      radial-gradient(ellipse 70% 45% at 50% -8%,rgba(34,211,238,.16),transparent 70%);
+    background-size:34px 34px,34px 34px,100% 100%;
+    color:var(--ink);
+    line-height:1.6;
+    padding-bottom:70px;
+  }
+  .wrap{max-width:1040px;margin:0 auto;padding:0 18px}
+
+  /* ================= NAV ================= */
+  nav{
+    position:sticky;top:0;z-index:50;
+    backdrop-filter:blur(9px);
+    background:rgba(6,18,32,.88);
+    border-bottom:1px solid var(--line);
+  }
+  .navin{
+    max-width:1040px;margin:0 auto;padding:11px 18px;
+    display:flex;align-items:center;gap:14px;flex-wrap:wrap;
+  }
+  .brand{
+    font-family:'Chakra Petch',sans-serif;font-weight:700;font-size:.95rem;
+    letter-spacing:.06em;text-transform:uppercase;color:var(--cyan);
+    display:flex;align-items:center;gap:8px;
+  }
+  .brand b{color:var(--ink)}
+  .navlinks{display:flex;gap:6px;flex-wrap:wrap;margin-left:auto}
+  .navlinks a{
+    font-family:'JetBrains Mono',monospace;font-size:.68rem;letter-spacing:.09em;
+    text-transform:uppercase;color:var(--dim);text-decoration:none;
+    border:1px solid var(--line);border-radius:999px;padding:5px 11px;
+    transition:.18s;
+  }
+  .navlinks a:hover{color:var(--void);background:var(--cyan);border-color:var(--cyan)}
+
+  /* ================= TYPO ================= */
+  h1,h2,h3{font-family:'Chakra Petch',sans-serif;line-height:1.12;font-weight:700}
+  h1{font-size:clamp(1.9rem,5.2vw,3.15rem);letter-spacing:-.01em}
+  h2{font-size:clamp(1.3rem,3.1vw,1.85rem)}
+  h3{font-size:1.05rem}
+  p{font-size:1.04rem;color:var(--ink)}
+  .lead{color:var(--dim);font-size:1.1rem}
+  .mono{font-family:'JetBrains Mono',monospace}
+  .kicker{
+    font-family:'JetBrains Mono',monospace;font-size:.68rem;letter-spacing:.22em;
+    text-transform:uppercase;color:var(--amber);display:inline-block;margin-bottom:12px;
+  }
+
+  /* ================= HERO ================= */
+  header.hero{padding:56px 0 34px;text-align:center}
+  .hero h1 span{
+    background:linear-gradient(100deg,var(--cyan),var(--lime));
+    -webkit-background-clip:text;background-clip:text;color:transparent;
+  }
+  .hero .lead{max-width:640px;margin:16px auto 0}
+  .robotline{
+    margin:30px auto 0;display:flex;align-items:center;justify-content:center;
+    gap:clamp(6px,2.5vw,20px);flex-wrap:wrap;
+  }
+  .rlbox{
+    background:var(--panel);border:1px solid var(--line);border-radius:var(--r);
+    padding:14px 16px;min-width:104px;
+  }
+  .rlbox .big{font-size:2rem;line-height:1.1;display:block}
+  .rlbox .cap{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.14em;text-transform:uppercase;color:var(--dim)}
+  .rlarrow{color:var(--cyan);font-size:1.4rem}
+
+  /* ================= SECTION + PANEL ================= */
+  section{padding:44px 0 8px}
+  .panel{
+    background:var(--panel);
+    border:1px solid var(--line);
+    border-left:3px solid var(--cyan);
+    border-radius:var(--r);
+    padding:clamp(20px,4vw,32px);
+    position:relative;
+  }
+  .panel.amber{border-left-color:var(--amber)}
+  .panel.lime{border-left-color:var(--lime)}
+  .panel.pink{border-left-color:var(--pink)}
+  .panel + .panel{margin-top:20px}
+  .panel h2{margin-bottom:8px}
+  .panel p + p{margin-top:10px}
+
+  /* ================= PARKING VISUAL ================= */
+  .parkgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:14px;margin-top:22px}
+  .park{
+    background:var(--panel2);border:1px solid var(--line);border-radius:var(--r);
+    padding:16px;text-align:center;
+  }
+  .park .stall{
+    display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:12px;
+  }
+  .stall i{
+    aspect-ratio:1;border:1px dashed var(--line2);border-radius:5px;
+    display:grid;place-items:center;font-style:normal;font-size:.95rem;
+  }
+  .park .verdict{font-family:'JetBrains Mono',monospace;font-size:.66rem;letter-spacing:.1em;text-transform:uppercase}
+  .park.ok .verdict{color:var(--lime)}
+  .park.waste .verdict{color:var(--pink)}
+  .park.queue .verdict{color:var(--amber)}
+  .park .note{font-size:.92rem;color:var(--dim);margin-top:6px}
+
+  /* ================= DOORS ================= */
+  .doors{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px;margin-top:22px}
+  .door{
+    text-align:left;cursor:pointer;font:inherit;color:inherit;
+    background:var(--panel2);border:1px solid var(--line);border-radius:var(--r);
+    padding:18px 16px;transition:.18s;
+  }
+  .door:hover{border-color:var(--line2);transform:translateY(-2px)}
+  .door .ico{font-size:1.9rem;display:block;margin-bottom:6px}
+  .door h3{font-size:1rem}
+  .door .sub{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--dim);letter-spacing:.08em;text-transform:uppercase}
+  .door[aria-selected="true"]{
+    border-color:var(--cyan);
+    box-shadow:0 0 0 1px var(--cyan),0 0 26px rgba(34,211,238,.18) inset;
+    background:#0F2739;
+  }
+  .doorbox{
+    margin-top:18px;background:var(--panel2);border:1px dashed var(--line2);
+    border-radius:var(--r);padding:20px;
+  }
+  .doorbox .flow{
+    display:flex;align-items:center;gap:10px;flex-wrap:wrap;justify-content:center;
+    font-size:1.5rem;margin-bottom:14px;
+  }
+  .doorbox .flow em{font-style:normal;font-size:.8rem;color:var(--dim);font-family:'JetBrains Mono',monospace}
+  .facts{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px}
+  .fact{background:var(--void);border:1px solid var(--line);border-radius:8px;padding:10px 12px}
+  .fact b{display:block;font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.12em;text-transform:uppercase;color:var(--dim);font-weight:400;margin-bottom:3px}
+  .fact span{font-size:.95rem;font-weight:600}
+
+  /* ================= LEVERS ================= */
+  .levers{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px;margin-top:20px}
+  .lever{
+    display:flex;gap:12px;align-items:flex-start;text-align:left;cursor:pointer;
+    background:var(--panel2);border:1px solid var(--line);border-radius:var(--r);
+    padding:15px;font:inherit;color:inherit;transition:.18s;
+  }
+  .lever:hover{border-color:var(--line2)}
+  .lever .sw{
+    flex:0 0 auto;width:42px;height:23px;border-radius:999px;background:#123;border:1px solid var(--line2);
+    position:relative;transition:.2s;margin-top:3px;
+  }
+  .lever .sw::after{
+    content:"";position:absolute;top:2px;left:3px;width:15px;height:15px;border-radius:50%;
+    background:var(--dim);transition:.2s;
+  }
+  .lever[aria-pressed="true"]{border-color:var(--lime);background:#0F2A22}
+  .lever[aria-pressed="true"] .sw{background:rgba(163,230,53,.25);border-color:var(--lime)}
+  .lever[aria-pressed="true"] .sw::after{left:22px;background:var(--lime);box-shadow:0 0 10px var(--lime)}
+  .lever h3{font-size:.98rem;margin-bottom:2px}
+  .lever .why{font-size:.88rem;color:var(--dim)}
+
+  /* ================= CONSOLE ================= */
+  .console{
+    margin-top:22px;display:grid;grid-template-columns:minmax(240px,320px) 1fr;gap:20px;
+  }
+  @media(max-width:760px){.console{grid-template-columns:1fr}}
+  .controls{display:flex;flex-direction:column;gap:16px}
+  .ctl label{font-family:'JetBrains Mono',monospace;font-size:.63rem;letter-spacing:.12em;text-transform:uppercase;color:var(--dim);display:block;margin-bottom:6px}
+  input[type=range]{width:100%;accent-color:#22D3EE}
+  .seg{display:flex;gap:6px}
+  .seg button{
+    flex:1;font:inherit;cursor:pointer;color:var(--dim);
+    background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:8px;
+    font-family:'JetBrains Mono',monospace;font-size:.75rem;
+  }
+  .seg button[aria-pressed="true"]{color:var(--void);background:var(--cyan);border-color:var(--cyan);font-weight:600}
+  .readout{background:var(--panel2);border:1px solid var(--line);border-radius:var(--r);padding:18px}
+  .stat{display:flex;justify-content:space-between;align-items:baseline;gap:10px}
+  .stat .val{font-family:'JetBrains Mono',monospace;font-size:1.5rem;font-weight:600;color:var(--cyan)}
+  .stat .val.small{font-size:1.15rem}
+  .meter{height:13px;background:#08161F;border:1px solid var(--line);border-radius:7px;overflow:hidden;margin:6px 0 16px}
+  .meter i{display:block;height:100%;width:0;transition:width .5s cubic-bezier(.3,.9,.3,1);background:linear-gradient(90deg,var(--cyan),var(--lime))}
+  .meter.amber i{background:linear-gradient(90deg,var(--amber),#FF7A45)}
+  .meter.pink i{background:linear-gradient(90deg,var(--pink),#C026D3)}
+  .meter.cyan i{background:linear-gradient(90deg,#0EA5E9,var(--cyan))}
+  .hint{font-size:.78rem;color:var(--dim);font-family:'JetBrains Mono',monospace}
+
+  /* ================= QUIZ ================= */
+  .chips{display:flex;flex-direction:column;gap:10px;margin-top:18px}
+  .chip{
+    text-align:left;font:inherit;color:inherit;cursor:pointer;
+    background:var(--panel2);border:1px solid var(--line);border-radius:var(--r);
+    padding:14px 16px;transition:.18s;display:flex;gap:12px;align-items:center;
+  }
+  .chip:hover{border-color:var(--line2)}
+  .chip .q{font-size:1rem}
+  .chip .ans{
+    margin-left:auto;font-family:'JetBrains Mono',monospace;font-size:.66rem;
+    letter-spacing:.1em;text-transform:uppercase;color:var(--dim);white-space:nowrap;
+  }
+  .chip.done{border-color:var(--lime);background:#0F2A22}
+  .chip.done .ans{color:var(--lime)}
+
+  /* ================= TABLE ================= */
+  .tscroll{overflow-x:auto;margin-top:20px}
+  table{border-collapse:collapse;width:100%;min-width:560px}
+  th,td{border:1px solid var(--line);padding:11px 13px;text-align:left;font-size:.95rem}
+  th{background:var(--panel2);font-family:'JetBrains Mono',monospace;font-size:.64rem;letter-spacing:.1em;text-transform:uppercase;color:var(--dim);font-weight:400}
+  td b{color:var(--cyan)}
+
+  /* ================= CHECKS / GOTCHAS ================= */
+  ul.list{list-style:none;margin-top:16px;display:flex;flex-direction:column;gap:9px}
+  ul.list li{
+    background:var(--panel2);border:1px solid var(--line);border-radius:8px;
+    padding:11px 14px;font-size:.97rem;display:flex;gap:11px;align-items:flex-start;
+  }
+  ul.list li b{font-family:'JetBrains Mono',monospace;font-size:.66rem;letter-spacing:.08em;text-transform:uppercase;color:var(--amber);flex:0 0 auto;margin-top:3px}
+
+  .tagrow{display:flex;flex-wrap:wrap;gap:8px;margin-top:16px}
+  .tg{
+    font-family:'JetBrains Mono',monospace;font-size:.68rem;letter-spacing:.06em;
+    border:1px solid var(--line2);border-radius:999px;padding:5px 12px;color:var(--cyan);
+  }
+  .tg.amber{color:var(--amber);border-color:rgba(255,176,32,.45)}
+  .tg.lime{color:var(--lime);border-color:rgba(163,230,53,.45)}
+
+  footer{text-align:center;margin-top:52px;color:var(--dim);font-family:'JetBrains Mono',monospace;font-size:.74rem}
+  footer a{color:var(--cyan)}
+  .reveal{opacity:0;transform:translateY(16px);transition:opacity .6s ease,transform .6s ease}
+  .reveal.in{opacity:1;transform:none}
+  @media (prefers-reduced-motion:reduce){
+    html{scroll-behavior:auto}
+    .reveal{opacity:1;transform:none;transition:none}
+    .meter i{transition:none}
+    .door:hover{transform:none}
+  }
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="navin">
+    <span class="brand">⚙️ SageMaker <b>· FM Deployment Console</b></span>
+    <div class="navlinks">
+      <a href="#why">Why</a>
+      <a href="#doors">4 Doors</a>
+      <a href="#levers">Levers</a>
+      <a href="#console">Console</a>
+      <a href="#pick">Pick</a>
+      <a href="#jobs">Jobs</a>
+    </div>
+  </div>
+</nav>
+
+<header class="hero wrap">
+  <span class="kicker">AWS Gen AI Developer · ELI5</span>
+  <h1>The robot is <span>already smart</span>.<br>Now make it <span>cheap and fast</span>.</h1>
+  <p class="lead">Deploying a foundation model is like hiring one giant robot. Optimizing the deployment is deciding <b>which door</b> kids come in, and <b>how the robot works while they wait</b>.</p>
+
+  <div class="robotline">
+    <div class="rlbox"><span class="big">🧠</span><span class="cap">Trained model</span></div>
+    <div class="rlarrow">→</div>
+    <div class="rlbox"><span class="big">🚪</span><span class="cap">Endpoint</span></div>
+    <div class="rlarrow">→</div>
+    <div class="rlbox"><span class="big">💸</span><span class="cap">Bill</span></div>
+    <div class="rlarrow">+</div>
+    <div class="rlbox"><span class="big">⚡</span><span class="cap">Latency</span></div>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <!-- ============ WHY ============ -->
+  <section id="why" class="reveal">
+    <div class="panel amber">
+      <span class="kicker">Why it matters</span>
+      <h2>A GPU is a parking lot you rent by the hour 🅿️</h2>
+      <p class="lead">Every request is a car. An empty lot costs the same as a full one. That is the whole problem.</p>
+
+      <div class="parkgrid">
+        <div class="park waste">
+          <div class="stall"><i>🚗</i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+          <div class="verdict">Too big → wasted money</div>
+          <p class="note">Tiny app, giant GPU instance. The robot sleeps, you still pay.</p>
+        </div>
+        <div class="park ok">
+          <div class="stall"><i>🚗</i><i>🚙</i><i>🚕</i><i>🚌</i><i>🚗</i><i>🚙</i><i></i><i>🚐</i></div>
+          <div class="verdict">Tuned → happy</div>
+          <p class="note">Right instance, batching, autoscaling. Cars in, answers out.</p>
+        </div>
+        <div class="park queue">
+          <div class="stall"><i>🚗</i><i>🚙</i><i>🚕</i><i>🚌</i><i>🚗</i><i>🚙</i><i>🚕</i><i>🚌</i></div>
+          <div class="verdict">Too small → queue</div>
+          <p class="note">Too many cars for one robot. Users stare at a spinner.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ DOORS ============ -->
+  <section id="doors" class="reveal">
+    <div class="panel">
+      <span class="kicker">Decision 1 of 2</span>
+      <h2>Pick the right door 🚪 (this matters more than tuning)</h2>
+      <p class="lead">SageMaker gives you four ways in. Tap a door to see how it works.</p>
+
+      <div class="doors" id="doorBtns" role="tablist" aria-label="SageMaker inference options">
+        <button class="door" role="tab" data-door="realtime" aria-selected="true">
+          <span class="ico">🚪</span>
+          <h3>Real-time endpoint</h3>
+          <span class="sub">Always open</span>
+        </button>
+        <button class="door" role="tab" data-door="serverless" aria-selected="false">
+          <span class="ico">🛎️</span>
+          <h3>Serverless inference</h3>
+          <span class="sub">Ring the bell</span>
+        </button>
+        <button class="door" role="tab" data-door="async" aria-selected="false">
+          <span class="ico">📥</span>
+          <h3>Async inference</h3>
+          <span class="sub">Leave a note</span>
+        </button>
+        <button class="door" role="tab" data-door="batch" aria-selected="false">
+          <span class="ico">🚚</span>
+          <h3>Batch transform</h3>
+          <span class="sub">Night truck</span>
+        </button>
+      </div>
+
+      <div class="doorbox">
+        <div class="flow" id="doorFlow"></div>
+        <p id="doorText" style="text-align:center;margin-bottom:16px"></p>
+        <div class="facts" id="doorFacts"></div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h3>👀 Bonus doors, same building</h3>
+      <p class="lead">When one endpoint must serve many models or many teams:</p>
+      <div class="tagrow">
+        <span class="tg">Multi-model endpoint — 1 lane, 100 cars, loaded on demand</span>
+        <span class="tg">Inference components — split one GPU between teams</span>
+        <span class="tg">Multi-container endpoint — one box, several programs</span>
+        <span class="tg">Neo compilation — shrink the robot for its chip</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ LEVERS ============ -->
+  <section id="levers" class="reveal">
+    <div class="panel lime">
+      <span class="kicker">Decision 2 of 2</span>
+      <h2>Flip the levers 🎚️</h2>
+      <p class="lead">Each lever changes speed, cost, or both. Toggle them — the console below reacts.</p>
+
+      <div class="levers" id="leverList">
+        <button class="lever" data-lever="batch" aria-pressed="true">
+          <span class="sw" aria-hidden="true"></span>
+          <span><h3>Continuous batching</h3><span class="why">One robot answers a whole playground at once — instead of one kid at a time.</span></span>
+        </button>
+        <button class="lever" data-lever="quant" aria-pressed="false">
+          <span class="sw" aria-hidden="true"></span>
+          <span><h3>Quantization (8-bit / 4-bit)</h3><span class="why">Store the robot's memory in shorter words. Smaller, cheaper, a tiny bit less precise.</span></span>
+        </button>
+        <button class="lever" data-lever="spec" aria-pressed="false">
+          <span class="sw" aria-hidden="true"></span>
+          <span><h3>Speculative decoding</h3><span class="why">A tiny fast robot guesses the next words; the big robot just says yes or no.</span></span>
+        </button>
+        <button class="lever" data-lever="tp" aria-pressed="false">
+          <span class="sw" aria-hidden="true"></span>
+          <span><h3>Tensor parallelism</h3><span class="why">Chop one giant robot across several GPUs so they work in the same second.</span></span>
+        </button>
+        <button class="lever" data-lever="ic" aria-pressed="false">
+          <span class="sw" aria-hidden="true"></span>
+          <span><h3>Inference components</h3><span class="why">Two smaller robots share one parking lot instead of renting two lots.</span></span>
+        </button>
+        <button class="lever" data-lever="autoscale" aria-pressed="false">
+          <span class="sw" aria-hidden="true"></span>
+          <span><h3>Autoscaling</h3><span class="why">More robots at lunchtime, fewer at midnight. You pay for the crowd, not the peak.</span></span>
+        </button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ CONSOLE ============ -->
+  <section id="console" class="reveal">
+    <div class="panel">
+      <span class="kicker">Try it yourself</span>
+      <h2>The tuning console 🎛️</h2>
+      <p class="lead">Drag the traffic, pick the model size, flip levers above. Watch cost and speed move in opposite directions.</p>
+
+      <div class="console">
+        <div class="controls">
+          <div class="ctl">
+            <label for="rps">Kids arriving per second</label>
+            <input id="rps" type="range" min="1" max="300" value="40">
+            <div class="hint"><span id="rpsOut">40</span> requests / second</div>
+          </div>
+          <div class="ctl">
+            <label>Model size</label>
+            <div class="seg" id="sizeSeg">
+              <button data-size="7B" aria-pressed="true">7B · one GPU</button>
+              <button data-size="70B" aria-pressed="false">70B · many GPUs</button>
+            </div>
+          </div>
+          <div class="ctl">
+            <label>Active levers</label>
+            <div class="hint" id="activeLevers">batching</div>
+          </div>
+        </div>
+
+        <div class="readout">
+          <div class="stat"><span class="hint">Speed of one robot</span><span class="val" id="capOut">—</span></div>
+          <div class="meter cyan"><i id="capBar"></i></div>
+
+          <div class="stat"><span class="hint">Reply time (average)</span><span class="val small" id="latOut">—</span></div>
+          <div class="meter"><i id="latBar"></i></div>
+
+          <div class="stat"><span class="hint">Robots you must rent</span><span class="val small" id="instOut">—</span></div>
+          <div class="meter amber"><i id="instBar"></i></div>
+
+          <div class="stat"><span class="hint">How busy each robot is</span><span class="val small" id="utilOut">—</span></div>
+          <div class="meter amber"><i id="utilBar"></i></div>
+
+          <div class="stat"><span class="hint">Rough monthly bill</span><span class="val" id="costOut">—</span></div>
+          <div class="hint">Illustrative toy math — get real numbers from <b>SageMaker Inference Recommender</b>.</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ PICK ============ -->
+  <section id="pick" class="reveal">
+    <div class="panel pink">
+      <span class="kicker">Practice</span>
+      <h2>Which door? Tap the situation 🔎</h2>
+      <div class="chips" id="quiz">
+        <button class="chip" data-ans="realtime"><span class="q">💬 A chatbot must reply in under a second.</span><span class="ans">tap to reveal</span></button>
+        <button class="chip" data-ans="serverless"><span class="q">🧪 A demo app that 3 people use per day.</span><span class="ans">tap to reveal</span></button>
+        <button class="chip" data-ans="async"><span class="q">🎬 Upload a 30-minute video, get a transcript later.</span><span class="ans">tap to reveal</span></button>
+        <button class="chip" data-ans="batch"><span class="q">📚 Summarize 500,000 PDFs tonight. Nobody is waiting.</span><span class="ans">tap to reveal</span></button>
+      </div>
+      <p class="hint" style="margin-top:14px">Hint: is a human waiting — and for how long? That single question picks the door.</p>
+    </div>
+  </section>
+
+  <!-- ============ CHEAT SHEET ============ -->
+  <section id="sheet" class="reveal">
+    <div class="panel">
+      <span class="kicker">Muscle memory</span>
+      <h2>The one-screen cheat sheet 📋</h2>
+      <div class="tscroll">
+        <table>
+          <thead>
+            <tr><th>If you need…</th><th>Use</th><th>Remember</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>Sub-second answers, steady traffic</td><td><b>Real-time endpoint</b></td><td>Scale to zero is not free — cold starts bite.</td></tr>
+            <tr><td>Spiky or tiny traffic</td><td><b>Serverless inference</b></td><td>Pays only when called, but has cold starts and size limits.</td></tr>
+            <tr><td>Big inputs, minutes of work</td><td><b>Async inference</b></td><td>Queues the job, returns a result to S3.</td></tr>
+            <tr><td>Millions of items, no user waiting</td><td><b>Batch transform</b></td><td>Cheapest, no endpoint to keep alive.</td></tr>
+            <tr><td>"Which instance should I even use?"</td><td><b>Inference Recommender</b></td><td>Benchmarks your model and suggests instance + config.</td></tr>
+            <tr><td>Huge model, won't fit one GPU</td><td><b>LMI container + tensor parallelism</b></td><td>DJL Serving ships vLLM / TensorRT-LLM style optimizations.</td></tr>
+            <tr><td>Cost spike from idle GPUs</td><td><b>Autoscaling + right-sizing</b></td><td>Track InvocationsPerInstance, not just CPU.</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="hint" style="margin-top:12px">Defaults and limits move fast — always confirm current instance families, payload caps and quotas in the AWS docs.</p>
+    </div>
+  </section>
+
+  <!-- ============ GOTCHAS ============ -->
+  <section id="gotchas" class="reveal">
+    <div class="panel amber">
+      <span class="kicker">Fine print</span>
+      <h2>Gotchas that cost real money ⚠️</h2>
+      <ul class="list">
+        <li><b>Cold start</b><span>Serverless and scaled-to-zero endpoints take time to wake up. Kids hate waiting.</span></li>
+        <li><b>Over-provision</b><span>Renting for peak traffic means paying for empty seats at 3 a.m.</span></li>
+        <li><b>Quantize blindly</b><span>Smaller weights are not always "just as good" — measure quality, don't assume.</span></li>
+        <li><b>Batch too hard</b><span>Bigger batches raise throughput but add latency per request.</span></li>
+        <li><b>Model too big</b><span>If it doesn't fit, you pay for multi-GPU instances whether you use them or not.</span></li>
+        <li><b>No load test</b><span>Optimizing without measuring is guessing. Load test, then tune.</span></li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- ============ JOBS ============ -->
+  <section id="jobs" class="reveal">
+    <div class="panel lime">
+      <span class="kicker">Why your job cares</span>
+      <h2>Where this shows up in your career 💼</h2>
+      <p class="lead">"The model answers well" is table stakes. "It answers well for a tenth of the cost" is the hiring signal.</p>
+
+      <div class="tagrow">
+        <span class="tg amber">Cert: AI Practitioner (AIF-C01) — applications of foundation models</span>
+        <span class="tg amber">Cert: ML Engineer – Associate (MLA-C01) — deployment &amp; orchestration domain</span>
+        <span class="tg lime">Role: Gen AI Developer</span>
+        <span class="tg lime">Role: ML / MLOps Engineer</span>
+        <span class="tg">Interview line: "I right-sized the endpoint and cut inference cost"</span>
+      </div>
+
+      <ul class="list">
+        <li><b>Be honest</b><span>Exact exam domains and course names change — check the current AWS certification page before you study.</span></li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- ============ TLDR ============ -->
+  <section id="tldr" class="reveal">
+    <div class="panel pink">
+      <span class="kicker">TL;DR</span>
+      <h2>Five things to remember 🧠</h2>
+      <ul class="list">
+        <li><b>1</b><span>The model isn't the cost — the <b>time the GPU sits there</b> is the cost.</span></li>
+        <li><b>2</b><span>Choose the door first: real-time, serverless, async, or batch.</span></li>
+        <li><b>3</b><span>Then flip levers: batching, quantization, speculative decoding, tensor parallelism, autoscaling.</span></li>
+        <li><b>4</b><span>Speed and cost fight. Every optimization is a trade you measure, not a checkbox you tick.</span></li>
+        <li><b>5</b><span>SageMaker Inference Recommender gives you real numbers instead of guesses.</span></li>
+      </ul>
+    </div>
+  </section>
+
+  <footer>
+    Made with 💛 by Buffy · part of the <a href="../../index.html">ELI5 notebook</a>
+  </footer>
+</main>
+
+<script>
+(function(){
+  /* ---------------- DOORS ---------------- */
+  var DOORS = {
+    realtime: {
+      flow: '🧑‍💻 → 🚪 <em>always open</em> → 🤖 → ⚡ &lt;1s',
+      text: 'The robot stands at the door all day. You rent the parking lot 24/7, but answers are instant.',
+      facts: [['Latency','very low'],['Best for','chat, search, copilots'],['You pay','per hour, always']]
+    },
+    serverless: {
+      flow: '🧑‍💻 → 🛎️ <em>ring</em> → 😴 → 🤖 → ⏳ first call slow',
+      text: 'Nobody waits = nobody pays. Ring the bell and a robot wakes up, but waking takes a moment.',
+      facts: [['Latency','low, plus cold start'],['Best for','demos, spiky traffic'],['You pay','per request + time']]
+    },
+    async: {
+      flow: '🧑‍💻 → 📥 <em>leave job</em> → 📬 queue → 🤖 → 🗄️ result in S3',
+      text: 'Too heavy to wait for? Drop the job in a mailbox, the robot works, the answer arrives later.',
+      facts: [['Latency','seconds to minutes'],['Best for','big files, video, PDFs'],['You pay','only while working']]
+    },
+    batch: {
+      flow: '🚚 <em>one big truck</em> → 🤖🤖🤖 → 📦 <em>pick up results</em>',
+      text: 'No door at all. Truck arrives at night, robot cranks through millions of items, you collect the boxes.',
+      facts: [['Latency','does not matter'],['Best for','bulk scoring, backfills'],['You pay','just for the run']]
+    }
+  };
+
+  var doorBtns = Array.prototype.slice.call(document.querySelectorAll('#doorBtns .door'));
+  var doorFlow = document.getElementById('doorFlow');
+  var doorText = document.getElementById('doorText');
+  var doorFacts = document.getElementById('doorFacts');
+
+  function showDoor(key){
+    doorBtns.forEach(function(b){ b.setAttribute('aria-selected', String(b.dataset.door === key)); });
+    var d = DOORS[key];
+    doorFlow.innerHTML = d.flow;
+    doorText.textContent = d.text;
+    doorFacts.innerHTML = d.facts.map(function(f){
+      return '<div class="fact"><b>' + f[0] + '</b><span>' + f[1] + '</span></div>';
+    }).join('');
+  }
+  doorBtns.forEach(function(b){
+    b.addEventListener('click', function(){ showDoor(b.dataset.door); });
+  });
+  showDoor('realtime');
+
+  /* ---------------- LEVERS + CONSOLE ---------------- */
+  var BASE = {
+    '7B':  { cap: 25, lat: 0.6, hr: 1.20, gpu: '1 GPU' },
+    '70B': { cap: 5,  lat: 1.4, hr: 12.0, gpu: 'many GPUs' }
+  };
+  var LEVER = {
+    batch:     { cap: 2.2,  lat: 1.12, name: 'batching' },
+    quant:     { cap: 1.70, lat: 0.85, name: 'quantization' },
+    spec:      { cap: 1.40, lat: 0.70, name: 'speculative decoding' },
+    tp:        { cap: 1.60, lat: 0.55, name: 'tensor parallelism' },
+    ic:        { cap: 1.35, lat: 1.08, name: 'inference components' },
+    autoscale: { cap: 1.00, lat: 1.00, name: 'autoscaling' }
+  };
+
+  var state = { rps: 40, size: '7B', on: { batch: true } };
+
+  var el = {
+    rps: document.getElementById('rps'),
+    rpsOut: document.getElementById('rpsOut'),
+    active: document.getElementById('activeLevers'),
+    capOut: document.getElementById('capOut'),
+    capBar: document.getElementById('capBar'),
+    latOut: document.getElementById('latOut'),
+    latBar: document.getElementById('latBar'),
+    instOut: document.getElementById('instOut'),
+    instBar: document.getElementById('instBar'),
+    utilOut: document.getElementById('utilOut'),
+    utilBar: document.getElementById('utilBar'),
+    costOut: document.getElementById('costOut')
+  };
+
+  function money(n){
+    return '$' + n.toLocaleString('en-US', { maximumFractionDigits: 0 });
+  }
+
+  function render(){
+    var b = BASE[state.size];
+    var cap = b.cap, lat = b.lat, names = [];
+    Object.keys(LEVER).forEach(function(k){
+      if (state.on[k]) { cap *= LEVER[k].cap; lat *= LEVER[k].lat; names.push(LEVER[k].name); }
+    });
+    lat = Math.max(0.15, lat);
+
+    var robots = Math.max(1, Math.ceil(state.rps / cap));
+    var util = Math.min(100, (state.rps / (robots * cap)) * 100);
+    var cost = robots * b.hr * 730;
+    if (state.on.autoscale) cost *= 0.72;   // pay closer to the crowd than the peak
+
+    el.rpsOut.textContent = state.rps;
+    el.active.textContent = names.length ? names.join(', ') : 'none yet — try batching';
+
+    el.capOut.textContent = '≈' + cap.toFixed(1) + ' answers/s';
+    el.capBar.style.width = Math.min(100, (cap / 60) * 100) + '%';
+
+    el.latOut.textContent = '≈' + lat.toFixed(2) + 's per answer';
+    el.latBar.style.width = Math.min(100, (lat / 2) * 100) + '%';
+
+    el.instOut.textContent = robots + ' × ' + b.gpu;
+    el.instBar.style.width = Math.min(100, (robots / 20) * 100) + '%';
+
+    el.utilOut.textContent = util.toFixed(0) + '% busy';
+    el.utilBar.style.width = util + '%';
+
+    el.costOut.textContent = '≈' + money(cost) + '/month';
+  }
+
+  el.rps.addEventListener('input', function(){ state.rps = Number(el.rps.value); render(); });
+
+  Array.prototype.slice.call(document.querySelectorAll('#sizeSeg button')).forEach(function(btn){
+    btn.addEventListener('click', function(){
+      state.size = btn.dataset.size;
+      Array.prototype.slice.call(document.querySelectorAll('#sizeSeg button')).forEach(function(o){
+        o.setAttribute('aria-pressed', String(o === btn));
+      });
+      render();
+    });
+  });
+
+  Array.prototype.slice.call(document.querySelectorAll('#leverList .lever')).forEach(function(btn){
+    btn.addEventListener('click', function(){
+      var k = btn.dataset.lever;
+      state.on[k] = !state.on[k];
+      btn.setAttribute('aria-pressed', String(state.on[k]));
+      render();
+    });
+  });
+
+  render();
+
+  /* ---------------- QUIZ ---------------- */
+  Array.prototype.slice.call(document.querySelectorAll('#quiz .chip')).forEach(function(chip){
+    chip.addEventListener('click', function(){
+      var d = chip.dataset.ans;
+      chip.classList.add('done');
+      chip.querySelector('.ans').textContent = '➜ ' + d + ' inference';
+      showDoor(d);
+      document.getElementById('doors').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+  });
+
+  /* ---------------- SCROLL REVEAL ---------------- */
+  var reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  var items = Array.prototype.slice.call(document.querySelectorAll('.reveal'));
+  if (reduce || !('IntersectionObserver' in window)) {
+    items.forEach(function(i){ i.classList.add('in'); });
+  } else {
+    var io = new IntersectionObserver(function(entries){
+      entries.forEach(function(e){
+        if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); }
+      });
+    }, { rootMargin: '-40px' });
+    items.forEach(function(i){ io.observe(i); });
+  }
+})();
+</script>
+</body>
+</html>
