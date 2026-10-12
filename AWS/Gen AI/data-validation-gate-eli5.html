@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ELI5: Data Validation Gate — the airport security for your data</title>
+<meta name="description" content="Front-gate data validation before Bedrock model calls, explained simply: S3 triggers, Glue Data Quality, a checkpoint, and a holding room.">
+<style>
+  :root {
+    --bg: #0b0f14;
+    --panel: #131b26;
+    --panel-2: #182433;
+    --border: #223040;
+    --text: #e6edf5;
+    --muted: #8ea2b8;
+    --orange: #ff9900;
+    --orange-soft: rgba(255, 153, 0, 0.14);
+    --cyan: #37c8e8;
+    --cyan-soft: rgba(55, 200, 232, 0.12);
+    --green: #5adba0;
+    --green-soft: rgba(90, 219, 160, 0.12);
+    --red: #ff7a7a;
+    --red-soft: rgba(255, 122, 122, 0.12);
+    --radius: 16px;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    color: var(--text);
+    line-height: 1.65;
+    background:
+      radial-gradient(1000px 480px at 90% -10%, rgba(255,153,0,0.09), transparent 60%),
+      radial-gradient(900px 460px at 5% -12%, rgba(55,200,232,0.10), transparent 60%),
+      var(--bg);
+    padding: 0 16px 72px;
+  }
+  .page { max-width: 980px; margin: 0 auto; }
+  a { color: var(--cyan); }
+  a:focus-visible { outline: 2px solid var(--cyan); outline-offset: 2px; }
+  code {
+    font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+    font-size: .88em;
+    background: var(--panel-2);
+    border: 1px solid var(--border);
+    padding: 1px 6px;
+    border-radius: 6px;
+    overflow-wrap: anywhere;
+  }
+
+  /* ---------- sticky nav ---------- */
+  .nav {
+    position: sticky; top: 0; z-index: 20;
+    display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+    padding: 12px 6px;
+    background: rgba(11, 15, 20, 0.85);
+    backdrop-filter: blur(8px);
+    border-bottom: 1px solid var(--border);
+  }
+  .nav .brand { font-weight: 800; margin-right: auto; color: var(--text); }
+  .nav .brand span { color: var(--orange); }
+  .nav a {
+    color: var(--muted); text-decoration: none; font-size: .82rem; font-weight: 600;
+    padding: 6px 11px; border-radius: 999px; border: 1px solid transparent;
+    transition: color .15s ease, border-color .15s ease, background .15s ease;
+  }
+  .nav a:hover, .nav a:focus-visible { color: var(--orange); border-color: var(--border); background: var(--orange-soft); }
+
+  /* ---------- hero ---------- */
+  .hero { text-align: center; padding: 52px 0 8px; }
+  .eyebrow {
+    display: inline-block;
+    font-family: ui-monospace, Menlo, monospace;
+    font-size: .72rem; font-weight: 600; letter-spacing: .16em; text-transform: uppercase;
+    color: var(--orange);
+    background: var(--orange-soft);
+    border: 1px solid rgba(255,153,0,.35);
+    padding: 5px 12px; border-radius: 999px;
+  }
+  h1 {
+    font-size: clamp(1.9rem, 5.5vw, 3rem);
+    line-height: 1.12;
+    margin: 16px 0 12px;
+    text-wrap: balance;
+    letter-spacing: -0.01em;
+  }
+  h1 em { font-style: normal; color: var(--cyan); }
+  .lede { color: var(--muted); font-size: 1.08rem; max-width: 640px; margin: 0 auto; text-wrap: pretty; }
+
+  /* ---------- sections ---------- */
+  section { margin-top: 44px; scroll-margin-top: 70px; }
+  h2 {
+    font-size: 1.45rem; line-height: 1.25; margin-bottom: 14px;
+    display: flex; align-items: center; gap: 10px; text-wrap: balance;
+  }
+  h2 .num {
+    font-family: ui-monospace, Menlo, monospace; font-size: .8rem; color: var(--bg);
+    background: var(--orange); border-radius: 8px; padding: 3px 8px;
+  }
+  p { margin-bottom: 12px; max-width: 65ch; }
+  .card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 20px;
+    transition: transform .2s ease, border-color .2s ease;
+  }
+  .card:hover { transform: translateY(-2px); border-color: rgba(55,200,232,.45); }
+  .grid { display: grid; gap: 14px; grid-template-columns: 1fr; }
+  .grid-2 { display: grid; gap: 14px; grid-template-columns: 1fr; }
+
+  /* ---------- one-line idea ---------- */
+  .idea { font-size: 1.1rem; }
+  .idea b { color: var(--orange); }
+
+  /* ---------- analogy ---------- */
+  .pair {
+    display: flex; flex-direction: column; gap: 2px;
+    padding: 14px 16px; border-radius: 12px;
+    background: var(--panel-2); border: 1px dashed var(--border);
+    min-width: 0;
+  }
+  .pair b { color: var(--orange); }
+  .pair span { color: var(--muted); }
+
+  /* ---------- pipeline ---------- */
+  .pipeline { display: flex; flex-direction: column; align-items: stretch; gap: 10px; }
+  .node {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 16px 18px;
+    min-width: 0;
+  }
+  .node .tag {
+    font-family: ui-monospace, Menlo, monospace;
+    font-size: .7rem; letter-spacing: .12em; text-transform: uppercase;
+    color: var(--muted); font-weight: 600;
+  }
+  .node strong { display: block; font-size: 1.05rem; margin-top: 4px; }
+  .node small { color: var(--muted); }
+  .node.gate { background: linear-gradient(135deg, rgba(55,200,232,.16), rgba(255,153,0,.10)); border-color: var(--cyan); }
+  .node.gate .tag { color: var(--cyan); }
+  .node.pass { background: var(--green-soft); border-color: rgba(90,219,160,.5); }
+  .node.pass .tag { color: var(--green); }
+  .node.fail { background: var(--red-soft); border-color: rgba(255,122,122,.5); }
+  .node.fail .tag { color: var(--red); }
+  .arrow { align-self: center; color: var(--muted); font-size: .9rem; font-family: ui-monospace, Menlo, monospace; }
+  .branch { display: grid; gap: 10px; grid-template-columns: 1fr; }
+
+  /* ---------- checks ---------- */
+  .check { display: flex; gap: 14px; align-items: flex-start; }
+  .check .num2 {
+    flex: none; width: 30px; height: 30px; border-radius: 50%;
+    background: var(--orange-soft); color: var(--orange); border: 1px solid rgba(255,153,0,.4);
+    display: grid; place-items: center; font-weight: 700; font-size: .85rem;
+    font-variant-numeric: tabular-nums;
+  }
+  .check small { color: var(--muted); }
+
+  /* ---------- code ---------- */
+  pre {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 14px 16px;
+    overflow-x: auto;
+    font-size: .88rem; line-height: 1.55;
+    font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+  }
+
+  /* ---------- traps ---------- */
+  .traps { list-style: none; display: grid; gap: 10px; grid-template-columns: 1fr; }
+  .traps li {
+    padding: 14px 16px; border-radius: 12px;
+    background: var(--red-soft); border-left: 3px solid var(--red);
+  }
+  .traps li span { color: var(--muted); }
+
+  /* ---------- metrics ---------- */
+  .metric {
+    display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap;
+    padding: 12px 0; border-bottom: 1px solid var(--border);
+  }
+  .metric:last-child { border-bottom: 0; }
+  .metric span { color: var(--muted); }
+  .metric b { font-variant-numeric: tabular-nums; color: var(--cyan); }
+
+  /* ---------- tldr ---------- */
+  .tldr { background: linear-gradient(135deg, var(--orange-soft), var(--cyan-soft)); border-color: rgba(255,153,0,.35); }
+  .tldr ul { list-style: none; display: grid; gap: 10px; }
+  .tldr li::before { content: "▸ "; color: var(--orange); }
+
+  .final {
+    text-align: center; margin-top: 52px; padding: 26px;
+    font-size: 1.2rem; font-weight: 600; text-wrap: balance;
+    border: 1px dashed var(--border); border-radius: var(--radius);
+  }
+  .final b { color: var(--orange); }
+  footer { margin-top: 36px; text-align: center; color: var(--muted); font-size: .85rem; }
+
+  @media (min-width: 640px) {
+    .grid { grid-template-columns: 1fr 1fr; }
+    .branch { grid-template-columns: 1fr 1fr; }
+    .traps { grid-template-columns: 1fr 1fr; }
+    .tldr ul { grid-template-columns: 1fr 1fr; }
+    .pipeline { align-items: stretch; }
+  }
+
+  /* ---------- scroll reveal (only when JS is on) ---------- */
+  .js .reveal { opacity: 0; transform: translateY(14px); transition: opacity .6s ease, transform .6s ease; }
+  .js .reveal.in { opacity: 1; transform: none; }
+  @media (prefers-reduced-motion: reduce) {
+    html { scroll-behavior: auto; }
+    .js .reveal { opacity: 1; transform: none; transition: none; }
+    .card { transition: none; }
+    .card:hover { transform: none; }
+  }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <nav class="nav" aria-label="Sections">
+    <div class="brand">ELI5 <span>·</span> 1.3.1</div>
+    <a href="#idea">Idea</a>
+    <a href="#analogy">Analogy</a>
+    <a href="#flow">Flow</a>
+    <a href="#checks">Checks</a>
+    <a href="#dqdl">DQDL</a>
+    <a href="#traps">Traps</a>
+    <a href="index.html">← Notebook</a>
+  </nav>
+
+  <header class="hero reveal">
+    <span class="eyebrow">AIP-C01 · Domain 1.3.1</span>
+    <h1>The airport security gate <em>for your data</em></h1>
+    <p class="lede">Before any document reaches the model, it walks through a checkpoint. Bad bags get pulled aside. Good bags go on the plane. The model never sees what the gate rejects.</p>
+  </header>
+
+  <section id="idea" class="reveal">
+    <h2><span class="num">01</span> The one-line idea</h2>
+    <div class="card idea">
+      <p>Front-gate validation means checking data <b>before</b> the foundation model call, not after. If the input is malformed, oversized, unsafe, or breaks a business rule, it goes to quarantine and never costs a single token.</p>
+    </div>
+  </section>
+
+  <section id="analogy" class="reveal">
+    <h2><span class="num">02</span> The analogy</h2>
+    <div class="grid">
+      <div class="pair"><b>Passenger</b><span>= an incoming file or record</span></div>
+      <div class="pair"><b>Security checkpoint</b><span>= the validation step (Lambda + Glue Data Quality)</span></div>
+      <div class="pair"><b>Boarding gate</b><span>= the <code>validated/</code> prefix</span></div>
+      <div class="pair"><b>Holding room</b><span>= the <code>quarantine/</code> prefix</span></div>
+      <div class="pair"><b>Plane</b><span>= the Bedrock model call</span></div>
+      <div class="pair"><b>Flight log</b><span>= CloudWatch metrics and alarms</span></div>
+    </div>
+  </section>
+
+  <section id="flow" class="reveal">
+    <h2><span class="num">03</span> How the flow works</h2>
+    <div class="pipeline">
+      <div class="node">
+        <span class="tag">1 · Upload</span>
+        <strong>Raw S3 prefix</strong>
+        <small>Document or dataset lands in <code>incoming/</code></small>
+      </div>
+      <div class="arrow">↓ S3 event triggers Lambda</div>
+      <div class="node gate">
+        <span class="tag">2 · The gate</span>
+        <strong>Lambda + Glue Data Quality</strong>
+        <small>Runs format, size, structure, and business-rule checks</small>
+      </div>
+      <div class="arrow">↓ verdict</div>
+      <div class="branch">
+        <div class="node pass">
+          <span class="tag">Pass</span>
+          <strong>validated/</strong>
+          <small>Only now does the Bedrock model call run</small>
+        </div>
+        <div class="node fail">
+          <span class="tag">Fail</span>
+          <strong>quarantine/</strong>
+          <small>Never sent to the model. Alert and review</small>
+        </div>
+      </div>
+      <div class="arrow">↓ every decision logged</div>
+      <div class="node">
+        <span class="tag">3 · Observe</span>
+        <strong>CloudWatch metric + alarm</strong>
+        <small>Alarm fires when the failure rate spikes</small>
+      </div>
+    </div>
+  </section>
+
+  <section id="checks" class="reveal">
+    <h2><span class="num">04</span> What the gate checks</h2>
+    <div class="grid">
+      <div class="card check"><div class="num2">1</div><div><b>Format and size</b><br><small>Extension is .pdf, .docx, or .txt; file is 50 MB or less</small></div></div>
+      <div class="card check"><div class="num2">2</div><div><b>Structure</b><br><small>Required columns exist and are complete</small></div></div>
+      <div class="card check"><div class="num2">3</div><div><b>Business rules</b><br><small>Values in range, allowed countries, unique keys</small></div></div>
+      <div class="card check"><div class="num2">4</div><div><b>Compliance</b><br><small>Amazon Comprehend PII scan before the model sees the content</small></div></div>
+    </div>
+  </section>
+
+  <section id="dqdl" class="reveal">
+    <h2><span class="num">05</span> Example DQDL ruleset</h2>
+    <div class="card">
+      <p><small>Glue Data Quality runs rules like these against <b>structured tables</b> in the Data Catalog, not raw PDFs.</small></p>
+      <pre><code>Rules = [
+    RowCount &gt; 0,
+    IsComplete "customer_id",
+    IsUnique "order_id",
+    ColumnValues "order_amount" between 0 and 100000,
+    ColumnValues "country" in ["US", "IN", "UK"]
+]</code></pre>
+    </div>
+  </section>
+
+  <section id="metrics" class="reveal">
+    <h2><span class="num">06</span> Key signals</h2>
+    <div class="card">
+      <div class="metric"><span>Size limit in the sample router</span><b>50 MB</b></div>
+      <div class="metric"><span>Allowed extensions</span><b>.pdf · .docx · .txt</b></div>
+      <div class="metric"><span>Routing signal in logs</span><b>route=pass / fail</b></div>
+      <div class="metric"><span>Destination for failures</span><b>quarantine/</b></div>
+    </div>
+  </section>
+
+  <section id="traps" class="reveal">
+    <h2><span class="num">07</span> Exam traps to remember</h2>
+    <ul class="traps">
+      <li><b>Glue DQ is for structured data.</b> <span>Raw PDFs and images need the S3 trigger plus Lambda checks instead.</span></li>
+      <li><b>Quarantine, don't delete.</b> <span>Failed files stay available for audit and reprocessing.</span></li>
+      <li><b>Validate before the call.</b> <span>Checking after the FM call wastes tokens and money.</span></li>
+      <li><b>Lake Formation controls access, not validity.</b> <span>It answers "who can read this," not "is this data good."</span></li>
+    </ul>
+  </section>
+
+  <section id="tldr" class="reveal">
+    <h2><span class="num">08</span> TL;DR</h2>
+    <div class="card tldr">
+      <ul>
+        <li>Validate at the front gate, before the model call.</li>
+        <li>S3 events trigger a Lambda that runs the checks.</li>
+        <li>Glue Data Quality handles structured tables; Lambda handles documents.</li>
+        <li>Pass goes to <code>validated/</code>; fail goes to <code>quarantine/</code>.</li>
+        <li>CloudWatch alarms on the failure rate catch bad upstream data early.</li>
+      </ul>
+    </div>
+  </section>
+
+  <div class="final reveal">If it would embarrass you in front of the model, <b>the gate should catch it first.</b></div>
+
+  <footer>Made with 💛 by Buffy · <a href="https://docs.aws.amazon.com/glue/latest/dg/data-quality-getting-started.html" target="_blank" rel="noopener">Glue Data Quality docs</a> · <a href="index.html">← back to the notebook</a></footer>
+</div>
+
+<script>
+  document.documentElement.classList.add('js');
+  (function () {
+    var items = document.querySelectorAll('.reveal');
+    if (!('IntersectionObserver' in window)) {
+      items.forEach(function (el) { el.classList.add('in'); });
+      return;
+    }
+    var io = new IntersectionObserver(function (entries) {
+      entries.forEach(function (e) {
+        if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); }
+      });
+    }, { threshold: 0.12 });
+    items.forEach(function (el) { io.observe(el); });
+  })();
+</script>
+</body>
+</html>
