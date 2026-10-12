@@ -1,0 +1,258 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Resilient AI Systems — ELI5</title>
+<style>
+  :root {
+    --bg: #0b0f14;
+    --panel: #131b26;
+    --border: #223040;
+    --text: #e6edf3;
+    --muted: #8b9bb0;
+    --orange: #ff9900;
+    --cyan: #37c8e8;
+    --red: #ff6b6b;
+    --green: #5fd38d;
+    --radius: 16px;
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font: 16px/1.6 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  a { color: var(--cyan); }
+  a:focus-visible, button:focus-visible { outline: 2px solid var(--orange); outline-offset: 3px; }
+  header, nav, main, footer { padding-left: 16px; padding-right: 16px; }
+  header { padding-top: 40px; max-width: 980px; margin: 0 auto; }
+  h1 { font-size: clamp(28px, 5vw, 42px); margin: 8px 0 8px; line-height: 1.15; }
+  h2 { font-size: 22px; margin: 0 0 12px; }
+  h3 { font-size: 17px; margin: 0 0 6px; }
+  .kicker { color: var(--orange); font-weight: 600; letter-spacing: .08em; text-transform: uppercase; font-size: 13px; }
+  .lede { color: var(--muted); font-size: 18px; max-width: 70ch; }
+  nav {
+    position: sticky; top: 0; z-index: 10;
+    background: rgba(11,15,20,.92); backdrop-filter: blur(6px);
+    border-bottom: 1px solid var(--border);
+    margin-top: 24px;
+  }
+  nav ul { list-style: none; margin: 0 auto; padding: 12px 0; max-width: 980px; display: flex; gap: 14px; flex-wrap: wrap; }
+  nav a { color: var(--muted); text-decoration: none; font-size: 14px; }
+  nav a:hover { color: var(--text); }
+  main { max-width: 980px; margin: 0 auto; padding-top: 24px; padding-bottom: 24px; }
+  section { margin-bottom: 36px; }
+  .card {
+    background: var(--panel); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 20px; margin-bottom: 14px;
+    transition: transform .2s ease, border-color .2s ease;
+  }
+  .card:hover { transform: translateY(-2px); border-color: var(--orange); }
+  .grid { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }
+  .flow { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 10px 0; }
+  .node {
+    background: #0f1722; border: 1px solid var(--border); border-radius: 12px;
+    padding: 10px 14px; font-size: 14px; min-width: 120px; text-align: center;
+  }
+  .node.bad { border-color: var(--red); color: var(--red); }
+  .node.good { border-color: var(--green); color: var(--green); }
+  .node.info { border-color: var(--cyan); color: var(--cyan); }
+  .arrow { color: var(--muted); font-size: 18px; }
+  .state { font-weight: 700; padding: 4px 10px; border-radius: 999px; font-size: 13px; }
+  .s-closed { background: rgba(95,211,141,.15); color: var(--green); }
+  .s-open { background: rgba(255,107,107,.15); color: var(--red); }
+  .s-half { background: rgba(255,153,0,.15); color: var(--orange); }
+  .big-idea { border-left: 4px solid var(--orange); }
+  .muted { color: var(--muted); font-size: 14px; }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  th, td { text-align: left; padding: 10px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  th { color: var(--orange); font-weight: 600; }
+  ul.clean { padding-left: 20px; margin: 6px 0; }
+  ul.clean li { margin: 6px 0; }
+  .reveal { opacity: 0; transform: translateY(12px); transition: opacity .5s ease, transform .5s ease; }
+  .reveal.in { opacity: 1; transform: none; }
+  @media (prefers-reduced-motion: reduce) {
+    html { scroll-behavior: auto; }
+    .reveal { opacity: 1; transform: none; transition: none; }
+    .card { transition: none; }
+  }
+  footer { max-width: 980px; margin: 0 auto; padding-top: 16px; padding-bottom: 40px; color: var(--muted); font-size: 14px; border-top: 1px solid var(--border); }
+  @media (max-width: 380px) { .node { min-width: 100%; } }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="kicker">AWS Gen AI Developer · 1.2.3</div>
+  <h1>Resilient AI Systems</h1>
+  <p class="lede"><strong>ELI5:</strong> Your AI app is a cricket team. When the star batsman gets hurt, you bring in a backup, and if the whole ground floods, you move the match to another ground. Resilience means the match never stops.</p>
+</header>
+
+<nav aria-label="Page sections">
+  <ul>
+    <li><a href="#big-idea">Big idea</a></li>
+    <li><a href="#fallback">Fallback</a></li>
+    <li><a href="#cross-region">Cross-Region</a></li>
+    <li><a href="#breaker">Circuit breaker</a></li>
+    <li><a href="#route53">Route 53</a></li>
+    <li><a href="#stepfn">Step Functions</a></li>
+    <li><a href="#retry">Retry vs breaker</a></li>
+    <li><a href="#traps">Exam traps</a></li>
+    <li><a href="#sources">Sources</a></li>
+  </ul>
+</nav>
+
+<main>
+
+  <section id="big-idea" class="reveal">
+    <h2>1. The big idea</h2>
+    <div class="card big-idea">
+      <p>Things <strong>will</strong> fail: a model gets throttled, a Region has a bad day, a dependency goes quiet. Resilience means you planned the backup <em>before</em> the failure, so the user still gets an answer, even if it is a slightly different one.</p>
+      <p class="muted">Cricket version: the star batsman is injured. A good captain already knows who comes in next. A bad captain panics.</p>
+    </div>
+  </section>
+
+  <section id="fallback" class="reveal">
+    <h2>2. Fallback model patterns</h2>
+    <div class="card">
+      <p>Try the <strong>primary model</strong>. If it fails, try a <strong>backup model</strong>. If that fails too, return a <strong>friendly message</strong>.</p>
+      <div class="flow" aria-label="Fallback flow">
+        <div class="node bad">Primary model ✗</div><span class="arrow">→</span>
+        <div class="node bad">Backup model ✗</div><span class="arrow">→</span>
+        <div class="node good">Friendly message ✓</div>
+      </div>
+      <p class="muted">Bedrock Intelligent Prompt Routing is a native option that picks a model by quality and cost. It does not replace your own failover logic.</p>
+    </div>
+  </section>
+
+  <section id="cross-region" class="reveal">
+    <h2>3. Cross-Region inference (CRIS)</h2>
+    <div class="card">
+      <p>Bedrock spreads your requests across several Regions in a geography, so one Region's quota or throttling does not stop you.</p>
+      <div class="flow" aria-label="Cross-Region flow">
+        <div class="node info">Your request</div><span class="arrow">→</span>
+        <div class="node">Region A</div>
+        <div class="node">Region B</div>
+        <div class="node">Region C</div>
+      </div>
+      <p><strong>Important:</strong> CRIS is a <em>capacity</em> mechanism. AWS's own resilience post says it is <strong>not</strong> a failover or disaster-recovery mechanism. For a full regional outage you need a multi-Region application tier.</p>
+    </div>
+  </section>
+
+  <section id="breaker" class="reveal">
+    <h2>4. Circuit breaker</h2>
+    <div class="card">
+      <p>Like a house fuse. If a dependency keeps failing, the breaker trips and calls stop going to it, so the system fails fast and uses the fallback instead of piling on load.</p>
+      <div class="flow" aria-label="Circuit breaker states">
+        <span class="state s-closed">CLOSED: calls go through</span><span class="arrow">→ too many failures →</span>
+        <span class="state s-open">OPEN: fail fast, use fallback</span><span class="arrow">→ after timeout →</span>
+        <span class="state s-half">HALF-OPEN: one probe call</span>
+      </div>
+      <ul class="clean">
+        <li>Probe succeeds → back to <strong>CLOSED</strong>.</li>
+        <li>Probe fails → back to <strong>OPEN</strong>.</li>
+        <li><strong>Where the state lives matters.</strong> Store it in <strong>DynamoDB</strong> or <strong>AppConfig</strong>, keyed per model and Region. A counter in one Lambda's memory is not shared, so each instance would decide on its own.</li>
+      </ul>
+    </div>
+  </section>
+
+  <section id="route53" class="reveal">
+    <h2>5. Route 53 health checks</h2>
+    <div class="card">
+      <p>Route 53 is the traffic police at DNS level. It checks each Region's endpoint, and when one is unhealthy it sends users to a healthy Region.</p>
+      <div class="flow" aria-label="Route 53 failover">
+        <div class="node info">Route 53 health check</div><span class="arrow">→</span>
+        <div class="node bad">Region A unhealthy</div><span class="arrow">→</span>
+        <div class="node good">Region B serves traffic</div>
+      </div>
+    </div>
+  </section>
+
+  <section id="stepfn" class="reveal">
+    <h2>6. Step Functions state machines</h2>
+    <div class="card">
+      <p>The state machine is the flowchart that ties the pieces together.</p>
+      <div class="flow" aria-label="Step Functions flow">
+        <div class="node info">Check breaker item</div><span class="arrow">→</span>
+        <div class="node">Choice: breaker OPEN?</div><span class="arrow">→ no →</span>
+        <div class="node">Call model (timeout set)</div>
+      </div>
+      <div class="flow" aria-label="Step Functions fallback">
+        <div class="node">Choice: breaker OPEN?</div><span class="arrow">→ yes →</span>
+        <div class="node good">Fallback model</div>
+      </div>
+      <ul class="clean">
+        <li>Each Task gets its own <strong>timeout</strong>, so a hung call cannot block the flow.</li>
+        <li><strong>Retry</strong> and <strong>Catch</strong> send failures to the fallback path.</li>
+      </ul>
+    </div>
+  </section>
+
+  <section id="retry" class="reveal">
+    <h2>7. Retry vs circuit breaker</h2>
+    <div class="grid">
+      <div class="card">
+        <h3>Retry with backoff + jitter</h3>
+        <p>Good for occasional throttling. Wait a little, try again, add randomness so retries do not stampede together.</p>
+      </div>
+      <div class="card">
+        <h3>Circuit breaker</h3>
+        <p>Good for a sick dependency, for example 9 of 10 calls failing. Stop calling it for a while so you do not add load to a system that is already down.</p>
+      </div>
+    </div>
+  </section>
+
+  <section id="traps" class="reveal">
+    <h2>8. Exam traps</h2>
+    <div class="card">
+      <table>
+        <thead><tr><th>If the answer says…</th><th>Why it is a trap</th></tr></thead>
+        <tbody>
+          <tr><td>Retry with backoff only, for a hard outage</td><td>Wrong. Use a circuit breaker to stop calling a dead dependency.</td></tr>
+          <tr><td>Keep breaker counters in memory per Lambda</td><td>Wrong. State is not shared. Use DynamoDB or AppConfig.</td></tr>
+          <tr><td>Cross-Region inference alone is disaster recovery</td><td>Wrong. CRIS is capacity. Add multi-Region plus Route 53 for failover.</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section id="sources" class="reveal">
+    <h2>Sources</h2>
+    <div class="card">
+      <ul class="clean">
+        <li><a href="https://aws.amazon.com/blogs/machine-learning/implementing-resilience-patterns-with-amazon-bedrock-and-llm-gateway/">Implementing resilience patterns with Amazon Bedrock and LLM gateway (AWS ML Blog, June 30, 2026)</a></li>
+        <li><a href="https://aws.amazon.com/about-aws/whats-new/2025/05/amazon-bedrock-guardrails-cross-region-inference">Amazon Bedrock Guardrails now supports cross-region inference</a></li>
+        <li><a href="https://docs.aws.amazon.com/prescriptive-guidance/latest/cloud-design-patterns/circuit-breaker.html">Circuit breaker pattern (AWS Prescriptive Guidance)</a></li>
+        <li><a href="https://aws.amazon.com/blogs/compute/using-the-circuit-breaker-pattern-with-aws-step-functions-and-amazon-dynamodb">Using the circuit breaker pattern with AWS Step Functions and Amazon DynamoDB (AWS Compute Blog)</a></li>
+        <li><a href="https://aws.amazon.com/blogs/networking-and-content-delivery/creating-disaster-recovery-mechanisms-using-amazon-route-53">Creating disaster recovery mechanisms using Amazon Route 53 (AWS Networking Blog)</a></li>
+      </ul>
+      <p class="muted">Topic source: AIP-C01 study notes (1.2.3 Resilient AI Systems).</p>
+    </div>
+  </section>
+
+</main>
+
+<footer>
+  <a href="../../index.html">← Back to the notebook index</a>
+</footer>
+
+<script>
+  (function () {
+    var items = document.querySelectorAll('.reveal');
+    if (!('IntersectionObserver' in window)) {
+      items.forEach(function (el) { el.classList.add('in'); });
+      return;
+    }
+    var io = new IntersectionObserver(function (entries) {
+      entries.forEach(function (e) {
+        if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); }
+      });
+    }, { threshold: 0.12 });
+    items.forEach(function (el) { io.observe(el); });
+  })();
+</script>
+</body>
+</html>
