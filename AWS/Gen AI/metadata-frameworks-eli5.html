@@ -1,0 +1,417 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ELI5: Metadata Frameworks — sticky labels that find the right page</title>
+<meta name="description" content="Metadata schema design and query-time metadata filtering for precise retrieval, explained simply: library shelf labels for your RAG chunks.">
+<style>
+  :root {
+    --night: #0a0e1a;
+    --night-2: #101728;
+    --panel: #141c30;
+    --panel-2: #1a2440;
+    --line: #27334f;
+    --star: #cfe0ff;
+    --moon: #f2f6ff;
+    --muted: #8fa3c8;
+    --gold: #ffc233;
+    --gold-soft: rgba(255, 194, 51, 0.14);
+    --cyan: #4cc9f0;
+    --cyan-soft: rgba(76, 201, 240, 0.12);
+    --green: #5adba0;
+    --red: #ff7a7a;
+    --radius: 18px;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    color: var(--star);
+    line-height: 1.65;
+    background:
+      radial-gradient(1100px 500px at 85% -10%, rgba(255,194,51,0.10), transparent 60%),
+      radial-gradient(900px 480px at 8% -12%, rgba(76,201,240,0.12), transparent 60%),
+      var(--night);
+    padding: 0 16px 72px;
+    overflow-x: hidden;
+  }
+  .page { position: relative; z-index: 1; max-width: 1020px; margin: 0 auto; }
+
+  /* ---------- sticky nav ---------- */
+  .nav {
+    position: sticky; top: 0; z-index: 20;
+    display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+    padding: 12px 6px;
+    background: rgba(10, 14, 26, 0.82);
+    backdrop-filter: blur(8px);
+    border-bottom: 1px solid var(--line);
+  }
+  .nav .brand { font-weight: 800; color: var(--moon); letter-spacing: .02em; margin-right: auto; }
+  .nav .brand .tag-ic { color: var(--gold); }
+  .nav a {
+    color: var(--muted); text-decoration: none; font-size: .82rem; font-weight: 600;
+    padding: 6px 11px; border-radius: 999px; border: 1px solid transparent;
+    transition: color .15s ease, border-color .15s ease, background .15s ease;
+  }
+  .nav a:hover, .nav a:focus-visible { color: var(--gold); border-color: var(--line); background: var(--gold-soft); }
+  a:focus-visible { outline: 2px solid var(--cyan); outline-offset: 2px; }
+
+  /* ---------- hero ---------- */
+  .hero { text-align: center; padding: 52px 0 8px; }
+  .eyebrow {
+    display: inline-block;
+    font-family: ui-monospace, "IBM Plex Mono", Menlo, monospace;
+    font-size: .72rem; font-weight: 600; letter-spacing: .18em; text-transform: uppercase;
+    color: var(--gold);
+    background: var(--gold-soft);
+    border: 1px solid rgba(255,194,51,.35);
+    border-radius: 999px; padding: 6px 14px; margin-bottom: 18px;
+  }
+  h1 {
+    font-size: clamp(2rem, 5.4vw, 3.3rem); line-height: 1.12; font-weight: 800;
+    color: var(--moon); letter-spacing: -.01em;
+  }
+  h1 .glow {
+    background: linear-gradient(92deg, var(--gold), var(--cyan));
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+  }
+  .hero-sub { color: var(--muted); font-size: 1.14rem; max-width: 640px; margin: 16px auto 0; }
+  .hero-sub strong { color: var(--moon); }
+
+  /* ---------- shelf emblem ---------- */
+  .emblem { display: flex; align-items: stretch; justify-content: center; gap: 12px; flex-wrap: wrap; margin: 38px 0 6px; }
+  .tower {
+    background: var(--panel); border: 1px solid var(--line); border-radius: 16px;
+    padding: 16px 14px 12px; text-align: center; min-width: 128px; position: relative;
+    box-shadow: 0 10px 30px rgba(0,0,0,.35);
+  }
+  .tower .emoji { font-size: 2rem; display: block; line-height: 1; }
+  .tower .lbl {
+    font-family: ui-monospace, Menlo, monospace; font-size: .62rem; letter-spacing: .13em;
+    text-transform: uppercase; color: var(--muted); display: block; margin-top: 8px;
+  }
+  .tower.star {
+    background: linear-gradient(180deg, var(--panel-2), var(--panel));
+    border: 1.5px solid var(--gold);
+    box-shadow: 0 0 0 4px var(--gold-soft), 0 14px 40px rgba(255,194,51,.12);
+  }
+  .tower.star::before {
+    content: ""; position: absolute; top: 0; left: 0; right: 0; height: 3px;
+    border-radius: 16px 16px 0 0;
+    background: repeating-linear-gradient(90deg, var(--gold) 0 8px, transparent 8px 14px);
+  }
+  .tower.star .emoji { animation: bob 3.2s ease-in-out infinite; }
+  @keyframes bob { 0%,100% { transform: translateY(0);} 50% { transform: translateY(-4px);} }
+  .beam { align-self: center; color: var(--muted); font-size: 1.1rem; }
+
+  /* ---------- sections ---------- */
+  section {
+    background: linear-gradient(180deg, var(--panel), var(--night-2));
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    padding: clamp(22px, 4vw, 36px);
+    margin: 30px 0;
+    scroll-margin-top: 76px;
+  }
+  h2 { color: var(--moon); font-size: clamp(1.3rem, 3vw, 1.7rem); line-height: 1.25; margin-bottom: 12px; }
+  h2 .ic { margin-right: 8px; }
+  h3 { color: var(--moon); font-size: 1.05rem; margin: 18px 0 8px; }
+  p { margin-bottom: 12px; font-size: 1.04rem; }
+  p:last-child { margin-bottom: 0; }
+  strong { color: var(--moon); font-weight: 700; }
+  .hl-gold { background: linear-gradient(transparent 55%, rgba(255,194,51,.35) 55%); color: var(--moon); font-weight: 700; }
+  .hl-cyan { background: linear-gradient(transparent 55%, rgba(76,201,240,.3) 55%); color: var(--moon); font-weight: 700; }
+  code {
+    font-family: ui-monospace, "IBM Plex Mono", Menlo, monospace;
+    font-size: .88em; color: var(--cyan);
+    background: var(--cyan-soft); border: 1px solid rgba(76,201,240,.25);
+    padding: 2px 7px; border-radius: 6px;
+  }
+  pre {
+    font-family: ui-monospace, "IBM Plex Mono", Menlo, monospace;
+    font-size: .86rem; line-height: 1.55; color: var(--star);
+    background: var(--night); border: 1px solid var(--line); border-radius: 12px;
+    padding: 14px 16px; margin-top: 14px; overflow-x: auto; max-width: 100%;
+  }
+  pre .k { color: var(--gold); }
+  pre .v { color: var(--cyan); }
+  pre .c { color: var(--muted); }
+  .kidline {
+    margin-top: 16px; padding: 13px 16px;
+    border-left: 4px solid var(--gold);
+    background: var(--gold-soft); border-radius: 0 12px 12px 0;
+    font-size: 1.06rem; color: var(--moon);
+  }
+
+  /* ---------- shelf vs. pile ---------- */
+  .split { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 18px; }
+  .half {
+    border-radius: 14px; padding: 20px; font-size: 1rem;
+    border: 1px solid var(--line); background: var(--night-2);
+  }
+  .half.lock { border-color: rgba(255,194,51,.5); box-shadow: inset 0 3px 0 rgba(255,194,51,.5); }
+  .half.book { border-color: rgba(76,201,240,.5); box-shadow: inset 0 3px 0 rgba(76,201,240,.5); }
+  .half .h-title { display: flex; align-items: center; gap: 10px; font-weight: 800; font-size: 1.15rem; color: var(--moon); margin-bottom: 8px; }
+  .half .h-q { font-size: .78rem; font-family: ui-monospace, Menlo, monospace; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); display: block; margin-bottom: 10px; }
+
+  /* ---------- label cards ---------- */
+  .labels { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; margin-top: 18px; }
+  .label-card {
+    background: var(--night-2); border: 1px solid var(--line); border-radius: 14px; padding: 18px;
+    transition: transform .15s ease, border-color .15s ease;
+  }
+  .label-card:hover { transform: translateY(-2px); border-color: rgba(255,194,51,.5); }
+  .label-card .name {
+    font-family: ui-monospace, Menlo, monospace; font-weight: 700; font-size: .9rem;
+    color: var(--gold); display: flex; align-items: center; gap: 8px; margin-bottom: 7px;
+  }
+  .label-card p { font-size: .94rem; color: var(--star); margin: 0; }
+
+  /* ---------- flow: filter first vs search first ---------- */
+  .flow { margin-top: 20px; display: flex; flex-direction: column; gap: 10px; }
+  .flow-row {
+    display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+    border-radius: 12px; padding: 13px 16px; border: 1px solid var(--line); background: var(--night-2);
+  }
+  .flow-row .who { font-family: ui-monospace, Menlo, monospace; font-size: .72rem; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); min-width: 110px; }
+  .chip {
+    font-family: ui-monospace, Menlo, monospace; font-size: .74rem; font-weight: 600;
+    color: var(--moon); background: var(--panel-2); border: 1px solid var(--line);
+    border-radius: 999px; padding: 5px 12px;
+  }
+  .chip.gate { color: var(--gold); border-color: rgba(255,194,51,.45); background: var(--gold-soft); }
+  .chip.search { color: var(--cyan); border-color: rgba(76,201,240,.4); background: var(--cyan-soft); }
+  .arr { color: var(--muted); }
+  .flow-row.good { border-color: rgba(90,219,160,.45); }
+  .flow-row.good .who { color: var(--green); }
+  .flow-row.bad { border-color: rgba(255,122,122,.45); }
+  .flow-row.bad .who { color: var(--red); }
+  .kpi { margin-left: auto; font-size: .9rem; color: var(--muted); }
+
+  /* ---------- gotchas ---------- */
+  .gotchas { list-style: none; margin-top: 6px; }
+  .gotchas li {
+    background: var(--night-2); border: 1px solid rgba(255,122,122,.4);
+    border-left: 4px solid var(--red);
+    border-radius: 12px; padding: 13px 17px; margin-bottom: 10px; font-size: .99rem;
+  }
+  .gotchas li b { color: var(--moon); }
+
+  /* ---------- TL;DR ---------- */
+  .tldr { list-style: none; margin-top: 8px; counter-reset: t; }
+  .tldr li { counter-increment: t; position: relative; padding: 9px 0 9px 42px; font-size: 1.05rem; }
+  .tldr li::before {
+    content: counter(t, decimal-leading-zero);
+    position: absolute; left: 0; top: 9px;
+    font-family: ui-monospace, Menlo, monospace; font-size: .8rem; font-weight: 700;
+    color: var(--gold); background: var(--gold-soft); border: 1px solid rgba(255,194,51,.35);
+    border-radius: 8px; padding: 2px 7px;
+  }
+
+  /* ---------- final card ---------- */
+  .final { text-align: center; border-color: rgba(255,194,51,.4); }
+  .formula {
+    font-weight: 800; color: var(--moon);
+    font-size: clamp(1.15rem, 2.8vw, 1.5rem); line-height: 1.5; margin: 8px 0 14px;
+  }
+  .formula .op { color: var(--muted); padding: 0 8px; }
+  .formula .res { color: var(--gold); }
+
+  footer { text-align: center; color: var(--muted); font-size: .82rem; margin-top: 44px; }
+  footer a { color: var(--cyan); }
+
+  /* reveal */
+  .reveal { opacity: 0; transform: translateY(14px); transition: opacity .5s ease, transform .5s ease; }
+  .reveal.in { opacity: 1; transform: none; }
+
+  @media (max-width: 640px) {
+    body { padding: 0 16px 56px; }
+    .split, .labels { grid-template-columns: 1fr; }
+    .beam { width: 100%; text-align: center; }
+    .nav { gap: 6px; }
+    .nav .brand { width: 100%; }
+    .flow-row .who { min-width: 0; width: 100%; }
+    .kpi { margin-left: 0; }
+    pre { font-size: .8rem; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .tower.star .emoji { animation: none; }
+    .reveal { opacity: 1; transform: none; transition: none; }
+    .label-card, .label-card:hover { transition: none; transform: none; }
+  }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <!-- NAV -->
+  <nav class="nav" aria-label="Sections">
+    <span class="brand"><span class="tag-ic">🏷️</span> ELI5 · labels</span>
+    <a href="#idea">Idea</a>
+    <a href="#shelf">Shelf</a>
+    <a href="#schema">Schema</a>
+    <a href="#filter">Filter</a>
+    <a href="#gotchas">Gotchas</a>
+    <a href="#tldr">TL;DR</a>
+  </nav>
+
+  <!-- HERO -->
+  <header class="hero">
+    <span class="eyebrow">AWS Gen AI · Explained like you're 5</span>
+    <h1>Put a <span class="glow">label</span> on every page before you search.</h1>
+    <p class="hero-sub">A big pile of documents is hard to search. Sticky labels like <strong>"year: 2024"</strong> and <strong>"team: HR"</strong> let you throw away the wrong pages <strong>first</strong>. That's <strong>Metadata Frameworks</strong>.</p>
+
+    <div class="emblem" role="img" aria-label="A library of labelled shelves: a label reader filters the books before a magnifying glass finds the answer">
+      <div class="tower"><span class="emoji">📚</span><span class="lbl">Pile of pages</span></div>
+      <div class="beam">✦</div>
+      <div class="tower"><span class="emoji">🏷️</span><span class="lbl">Labels</span></div>
+      <div class="beam">✦</div>
+      <div class="tower star"><span class="emoji">🔎</span><span class="lbl">Precise answer</span></div>
+    </div>
+  </header>
+
+  <!-- THE IDEA -->
+  <section id="idea" class="reveal">
+    <h2><span class="ic">🧠</span>The big idea in one picture</h2>
+    <p>Imagine a library with no shelf labels. A friend asks, "Find me a 2024 HR policy about parental leave." You would have to open every book in the building. Searching <em>everything</em> is slow, and you might grab a 2015 policy by mistake.</p>
+    <p>Now imagine every book has a sticky label: <strong>year</strong>, <strong>department</strong>, <strong>who may read it</strong>. You first walk to the <span class="hl-gold">HR shelf</span> with <span class="hl-gold">2024</span> on it, and only then look for "parental leave". That's the whole trick.</p>
+    <div class="kidline">🧸 <strong>In one breath:</strong> metadata is the sticky label. Filtering on it means checking the label before you read the page.</div>
+  </section>
+
+  <!-- SHELF -->
+  <section id="shelf" class="reveal">
+    <h2><span class="ic">🏷️</span>What is metadata for a RAG chunk?</h2>
+    <p>In RAG, your documents get cut into small <strong>chunks</strong>, and each chunk becomes a vector. A vector says <em>what the text means</em>. Metadata says <em>facts about the chunk</em> that are not in the meaning:</p>
+    <div class="labels">
+      <div class="label-card"><span class="name">📄 source</span><p>Which file or URL did this come from?</p></div>
+      <div class="label-card"><span class="name">📅 date</span><p>When was it published or updated? Stale chunks can be excluded.</p></div>
+      <div class="label-card"><span class="name">🌍 region</span><p>Which country or product line does it apply to?</p></div>
+      <div class="label-card"><span class="name">🔐 access tags</span><p>Which roles or teams may see it? This is the ACL label.</p></div>
+    </div>
+    <div class="kidline">🧸 Good labels are <strong>boring facts</strong> you already know about a page. A vector can't tell you those.</div>
+  </section>
+
+  <!-- SCHEMA -->
+  <section id="schema" class="reveal">
+    <h2><span class="ic">🧩</span>Design the label rules first (the schema)</h2>
+    <p>A <span class="hl-cyan">metadata schema</span> is the list of labels, what type each one holds, and which values are allowed. Decide it before you ingest a single file. Changing labels later means re-ingesting data.</p>
+    <div class="split">
+      <div class="half lock">
+        <span class="h-title"><span>✅</span> Good schema</span>
+        <span class="h-q">"Clear and boring"</span>
+        Short lowercase keys like <code>region</code>, <code>year</code>, <code>acl</code>. Real types: numbers stay numbers. Fixed values, like <code>EU</code> or <code>US</code>, not free text.
+      </div>
+      <div class="half book">
+        <span class="h-title"><span>⚠️</span> Messy schema</span>
+        <span class="h-q">"Looks fine until it isn't"</span>
+        <code>Region</code> in one file and <code>region</code> in another. Years as text in some files and numbers in others. Ten spellings for the same team.
+      </div>
+    </div>
+    <p style="margin-top:18px">In Amazon Bedrock Knowledge Bases, each source document can have a companion metadata file in S3 with the same name plus <code>.metadata.json</code>. It looks like this:</p>
+<pre><span class="c">// hr-policy-2024.pdf.metadata.json  (sits next to the PDF in S3)</span>
+{
+  <span class="k">"metadataAttributes"</span>: {
+    <span class="k">"department"</span>: <span class="v">"HR"</span>,
+    <span class="k">"year"</span>: <span class="v">2024</span>,
+    <span class="k">"is_public"</span>: <span class="v">false</span>,
+    <span class="k">"region"</span>: <span class="v">"EU"</span>
+  }
+}</pre>
+    <div class="kidline">🧸 Notice <code>year</code> is <strong>2024</strong> with no quotes. It is a number, and it is stored as one.</div>
+  </section>
+
+  <!-- FILTER -->
+  <section id="filter" class="reveal">
+    <h2><span class="ic">🚦</span>Filter at query time, before the vector search</h2>
+    <p>At query time, you send the question <em>plus</em> a filter. The filter is a rule like "department equals HR and year equals 2024". The vector search then only ranks the pages that passed. Here is how the order matters:</p>
+    <div class="flow" role="img" aria-label="Pre-filtering checks labels first, then searches a small pool. Post-filtering searches everything first, then drops results that do not match">
+      <div class="flow-row good">
+        <span class="who">✅ Pre-filter</span>
+        <span class="chip gate">labels: HR + 2024</span><span class="arr">→</span>
+        <span class="chip search">vector search on the few</span><span class="arr">→</span>
+        <span class="chip">top-k answers</span>
+        <span class="kpi">always k good ones</span>
+      </div>
+      <div class="flow-row bad">
+        <span class="who">⚠️ Post-filter</span>
+        <span class="chip search">vector search on everything</span><span class="arr">→</span>
+        <span class="chip">top-k from all</span><span class="arr">→</span>
+        <span class="chip gate">drop non-HR</span>
+        <span class="kpi">may return fewer than k</span>
+      </div>
+    </div>
+    <p style="margin-top:18px">Modern stores use an <span class="hl-gold">efficient filter</span>: they check the label while they search, so you get the right number of results without scanning the whole pile twice. OpenSearch's k-NN engine supports this for Faiss and Lucene engines.</p>
+    <pre><span class="c">// Bedrock KB retrieval with a metadata filter (sketch)</span>
+{
+  <span class="k">"retrievalConfiguration"</span>: {
+    <span class="k">"vectorSearchConfiguration"</span>: {
+      <span class="k">"numberOfResults"</span>: <span class="v">5</span>,
+      <span class="k">"filter"</span>: {
+        <span class="k">"andAll"</span>: [
+          { <span class="k">"equals"</span>: { <span class="k">"key"</span>: <span class="v">"department"</span>, <span class="k">"value"</span>: <span class="v">"HR"</span> } },
+          { <span class="k">"greaterThanOrEquals"</span>: { <span class="k">"key"</span>: <span class="v">"year"</span>, <span class="k">"value"</span>: <span class="v">2024</span> } }
+        ]
+      }
+    }
+  }
+}</pre>
+    <div class="kidline">🧸 Filter first, then rank. Fewer pages to check means faster, more precise answers.</div>
+  </section>
+
+  <!-- ACCESS -->
+  <section class="reveal">
+    <h2><span class="ic">🔐</span>Labels as the bouncer at the door</h2>
+    <p>The same trick guards private data. Give each chunk an access label, and at query time add a filter for the signed-in user's groups. A nurse never gets the chunks labelled <code>hr-confidential</code>, even if the vector match is perfect. Filter on the server, never on the client, because a client can change its own filter.</p>
+  </section>
+
+  <!-- GOTCHAS -->
+  <section id="gotchas" class="reveal">
+    <h2><span class="ic">⚠️</span>Gotchas that bite real builders</h2>
+    <ul class="gotchas">
+      <li>🔢 <b>Quoted numbers don't match.</b> If the metadata file says <code>"year": "2024"</code> but your filter sends the integer <code>2024</code>, the filter can silently match nothing. Keep types identical across files and queries.</li>
+      <li>📉 <b>Post-filtering can give you fewer than k.</b> Ask for 5 results, filter out 4 of them afterwards, and you get 1. Prefer pre-filtering or an efficient filter.</li>
+      <li>🧹 <b>Missing labels are not "no match".</b> A chunk with no <code>region</code> label may be dropped by a region filter. Decide a default and enforce it in ingestion.</li>
+      <li>🧾 <b>Too many labels, too little use.</b> Every label costs ingestion work and storage. Keep the ones you will actually filter on.</li>
+      <li>🧨 <b>Client-side filters are not security.</b> Access labels must be applied by the retrieval layer, using the caller's verified identity.</li>
+      <li>🔄 <b>Changing the schema means re-ingesting.</b> Renaming <code>dept</code> to <code>department</code> means updating every metadata file and syncing the knowledge base again.</li>
+    </ul>
+  </section>
+
+  <!-- TL;DR -->
+  <section id="tldr" class="reveal">
+    <h2><span class="ic">⭐</span>TL;DR — the labels in five lines</h2>
+    <ul class="tldr">
+      <li>Metadata is a <b>sticky label</b> on each chunk: source, date, region, access tags.</li>
+      <li>Design the <b>schema first</b>: consistent key names and real types (numbers stay numbers).</li>
+      <li>In Bedrock Knowledge Bases, put a <b>.metadata.json</b> file next to each document in S3.</li>
+      <li>Filter <b>at query time</b>, before or during the vector search. Avoid post-filtering that can return fewer than k.</li>
+      <li>Apply <b>access filters on the server</b> with the caller's identity, and watch out for quoted numbers.</li>
+    </ul>
+  </section>
+
+  <!-- FINAL -->
+  <section class="final reveal">
+    <h2><span class="ic">🏷️</span>The whole story in one breath</h2>
+    <p class="formula">Good labels<span class="op">+</span>filter first<span class="op">+</span>match the types<span class="op">=</span><span class="res">the right page, every time</span></p>
+    <p style="color: var(--muted);">That's <strong style="color:var(--moon)">Metadata Frameworks</strong> for precise retrieval. 🎉</p>
+  </section>
+
+  <footer>Made with 💛 by Buffy · <a href="https://docs.aws.amazon.com/bedrock/latest/userguide/kb-metadata.html" target="_blank" rel="noopener">Bedrock KB metadata docs</a> · <a href="../../index.html">← back to the notebook</a></footer>
+</div>
+
+<script>
+  // scroll reveal (respect reduced motion)
+  const prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const items = document.querySelectorAll('.reveal');
+  if (prefersReduced || !('IntersectionObserver' in window)) {
+    items.forEach(el => el.classList.add('in'));
+  } else {
+    const io = new IntersectionObserver(entries => {
+      entries.forEach(e => { if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); } });
+    }, { threshold: 0.08 });
+    items.forEach(el => io.observe(el));
+  }
+</script>
+</body>
+</html>
